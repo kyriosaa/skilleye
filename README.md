@@ -303,9 +303,13 @@ source at `docs/schematics/2.0/rev2.1/`. The earlier rev1.0/1.1 custom-board fil
 Where this board would sit on the racket, and what its two sensing modalities are meant to
 pick up (both are concept diagrams — no physical unit has been mounted yet):
 
-| Placement | Sensing mechanism |
-|---|---|
-| ![Sensor placement concept](docs/schematics/sensor_placement_concept.svg) | ![Sensor mechanism concept](docs/schematics/sensor_mechanism_concept.svg) |
+**Placement**
+
+![Sensor placement concept](docs/schematics/sensor_placement_concept.svg)
+
+**Sensing mechanism**
+
+![Sensor mechanism concept](docs/schematics/sensor_mechanism_concept.svg)
 
 This is a finalized, PCB-laid-out design, not yet a built board: no physical prototype has
 been assembled or fabricated, no firmware has been written, and no real sensor data has been
