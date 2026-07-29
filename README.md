@@ -86,10 +86,55 @@ next step.
 3. Evidence, from a dedicated experiment, that motion *quality* (not just stroke type) is
    learnable from this same skeleton representation — using THETIS's beginner/expert metadata
    as a weak proxy label ahead of real coach-rating ground truth (Section 3.2).
-4. An honest accounting of what this dataset cannot yet support (Section 4.1) and a concrete
+4. A working, end-to-end swing-quality feedback loop, not just a classifier: phase detection,
+   per-joint deviation from expert templates, rule-based correction suggestions, and an
+   optional LLM layer that rewrites those same flagged deviations into a coaching paragraph —
+   demonstrated through an accompanying Streamlit UI (Section 2.6).
+5. A cross-disciplinary hardware + software effort toward a wearable sensing device: a
+   finalized (rev2.1), PCB-laid-out IMU sensor board designed in parallel with the modeling
+   work in this document, plus a software fusion architecture built to consume its data the
+   moment real recordings exist (Section 2.7).
+6. An honest accounting of what this dataset cannot yet support (Section 4.1) and a concrete
    plan for closing that gap (Section 5).
 
 ## 2. Methodology
+
+### 2.0 System Overview
+
+Before the section-by-section detail below, this is how the pieces fit together end to end —
+from a raw swing video to what a user actually sees. Solid blue boxes are built and validated
+with real trained results (Sections 2.1–2.6, 3); the dashed amber subgraph is the sensor-fusion
+prototype (Section 2.7), which is real code and a real hardware design, but not yet trained on
+real sensor data.
+
+```mermaid
+flowchart TD
+    V["Swing video<br/>webcam, front-facing"] --> P["RTMPose<br/>2D pose extraction (2.2)"]
+    P --> S["Normalized skeleton<br/>COCO-17, hip-anchored"]
+
+    S --> C1["ST-GCN: Stroke classifier<br/>81.7% +/- 4.9%, 5-fold CV (2.3, 3.1)"]
+    S --> C2["ST-GCN: Beginner/Expert<br/>82.4% +/- 3.8%, 5-fold CV (2.4, 3.2)"]
+
+    C1 --> Q["Quality scoring<br/>rule-based z-score vs. expert templates (2.6)"]
+    S --> Q
+    Q --> D["Per-phase/joint deviations<br/>+ correction suggestions"]
+
+    D --> LLM["LLM explainer, optional<br/>NVIDIA API, flagged-rows-only prompt (2.6)"]
+    D --> UI["Streamlit demo UI"]
+    LLM --> UI
+
+    subgraph FUT["Sensor-fusion prototype -- not yet validated (2.7)"]
+        direction LR
+        IMU["Synthetic IMU signal<br/>real board designed, not yet built"] --> ENC["IMUEncoder"]
+        C2 -.->|"extract_features()"| ENC
+        ENC --> FUS["Fused classifier"]
+    end
+
+    classDef validated fill:#2a78d6,stroke:#184f95,color:#fff
+    classDef prototype fill:#fcfcfb,stroke:#c07d0a,color:#0b0b0b,stroke-dasharray: 5 3
+    class P,S,C1,C2,Q,D,UI,LLM validated
+    class IMU,ENC,FUS prototype
+```
 
 ### 2.1 Dataset
 
@@ -281,6 +326,13 @@ source at `docs/schematics/2.0/rev2.1/`. The earlier rev1.0/1.1 custom-board fil
 `hardware/skilleye_1.0/` / `docs/schematics/1.0/` for reference.
 
 ![Skilleye 2.0 schematic (rev2.1, finalized)](docs/schematics/2.0/rev2.1/skilleye_2.0.svg)
+
+Where this board would sit on the racket, and what its two sensing modalities are meant to
+pick up (both are concept diagrams — no physical unit has been mounted yet):
+
+| Placement | Sensing mechanism |
+|---|---|
+| ![Sensor placement concept](docs/schematics/sensor_placement_concept.png) | ![Sensor mechanism concept](docs/schematics/sensor_mechanism_concept.png) |
 
 This is a finalized, PCB-laid-out design, not yet a built board: no physical prototype has
 been assembled or fabricated, no firmware has been written, and no real sensor data has been
@@ -508,6 +560,7 @@ ml/skilleye/                       pipeline and modeling code
   quality/llm_explainer.py         optional LLM-generated correction paragraphs (§2.6, needs NVIDIA_API_KEY)
   imu_fusion.py                    synthetic IMU signal + fusion model prototype (§2.7)
   train_beginner_expert_fusion_prototype.py   trains the fusion prototype (synthetic data, §2.7)
+  generate_hardware_diagrams.py    renders the sensor placement/mechanism concept diagrams (§2.7)
   requirements.txt
   README.md                        environment setup notes (incl. GPU-specific gotchas)
 
@@ -527,6 +580,8 @@ hardware/skilleye_2.0/             KiCad rev2.1 PCB project (§2.7, finalized): 
 hardware/skilleye_1.0/             earlier rev1.0/1.1 custom-board iteration, kept for reference
 docs/schematics/2.0/rev2.1/        rendered schematic PDF/SVG for the current (rev2.1) board
 docs/schematics/1.0/               rendered schematics for the earlier rev1.0/1.1 iteration
+docs/schematics/sensor_*_concept.png  placement/mechanism concept diagrams (§2.7), from
+                                    generate_hardware_diagrams.py -- illustrative, not photos
 ```
 
 Dataset (not included in this repository — see `ml/skilleye/README.md` for how to fetch it):
