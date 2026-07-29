@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 420 560" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="axArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a78d6"/><stop offset="1" stop-color="#184f95"/>
+    </linearGradient>
+    <filter id="softShadow2" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#14130f" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <rect x="150" y="112" width="70" height="48" rx="10" fill="url(#accentGrad)" stroke="#184f95" stroke-width="1.5" filter="url(#softShadow2)"/>
+  <text x="185" y="141" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="ui-monospace, monospace">IMU</text>
+
+  <!-- X axis (red-ish handled via CRITICAL semantic, but keep in accent family for cohesion: use proto+accent+ink) -->
+  <g>
+    <line x1="220" y1="136" x2="320" y2="136" stroke="#c9432f" stroke-width="2.4" marker-end="url(#axArrow)"/>
+    <text x="336" y="141" font-size="15" font-weight="700" fill="#c9432f" font-family="ui-monospace, monospace">X</text>
+    <path d="M 300 96 A 22 22 0 1 1 279 118" fill="none" stroke="#c9432f" stroke-width="1.6"/>
+    <path d="M 279 118 l -7 -2 l 3 -7 z" fill="#c9432f"/>
+    <text x="300" y="80" text-anchor="middle" font-size="10" fill="#c9432f">roll</text>
+  </g>
+
+  <!-- Y axis -->
+  <g>
+    <line x1="185" y1="112" x2="185" y2="30" stroke="#2a78d6" stroke-width="2.4" marker-end="url(#axArrow)"/>
+    <text x="185" y="18" text-anchor="middle" font-size="15" font-weight="700" fill="#2a78d6" font-family="ui-monospace, monospace">Y</text>
+    <path d="M 225 60 A 22 22 0 1 1 203 38" fill="none" stroke="#2a78d6" stroke-width="1.6"/>
+    <path d="M 203 38 l -6 -3 l 4 -6 z" fill="#2a78d6"/>
+    <text x="245" y="55" text-anchor="middle" font-size="10" fill="#2a78d6">pitch</text>
+  </g>
+
+  <!-- Z axis -->
+  <g>
+    <line x1="150" y1="160" x2="80" y2="220" stroke="#c07d0a" stroke-width="2.4" marker-end="url(#axArrow)"/>
+    <text x="60" y="238" text-anchor="middle" font-size="15" font-weight="700" fill="#c07d0a" font-family="ui-monospace, monospace">Z</text>
+    <path d="M 105 250 A 22 22 0 1 1 116 224" fill="none" stroke="#c07d0a" stroke-width="1.6"/>
+    <path d="M 116 224 l 1 7 l -7 -1 z" fill="#c07d0a"/>
+    <text x="70" y="268" text-anchor="middle" font-size="10" fill="#c07d0a">yaw</text>
+  </g>
+
+  <!-- Legend -->
+  <line x1="20" y1="330" x2="400" y2="330" stroke="#e6e3da"/>
+  <g font-family="-apple-system, sans-serif">
+    <circle cx="30" cy="356" r="5" fill="#c9432f"/>
+    <text x="44" y="352" font-size="11.5" font-weight="700" fill="#14130f">X — accel</text>
+    <text x="140" y="352" font-size="11" fill="#5c5a52">racket-face tilt at contact</text>
+    <text x="44" y="370" font-size="10.5" fill="#c9432f">roll — rotation about X</text>
+
+    <circle cx="30" cy="398" r="5" fill="#2a78d6"/>
+    <text x="44" y="394" font-size="11.5" font-weight="700" fill="#14130f">Y — accel</text>
+    <text x="140" y="394" font-size="11" fill="#5c5a52">swing-plane acceleration</text>
+    <text x="44" y="412" font-size="10.5" fill="#2a78d6">pitch — rotation about Y</text>
+
+    <circle cx="30" cy="440" r="5" fill="#c07d0a"/>
+    <text x="44" y="436" font-size="11.5" font-weight="700" fill="#14130f">Z — accel</text>
+    <text x="140" y="436" font-size="11" fill="#5c5a52">toward/away from the strings</text>
+    <text x="44" y="454" font-size="10.5" fill="#c07d0a">yaw — rotation about Z (wrist-snap proxy)</text>
+  </g>
+
+  <text x="210" y="500" text-anchor="middle" font-size="10" fill="#8a8779">Illustrative — axis/motion pairings are indicative, not measured.</text>
+  <text x="210" y="516" text-anchor="middle" font-size="10" fill="#8a8779">No real sensor data exists yet (§2.7).</text>
+</svg>
