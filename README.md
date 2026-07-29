@@ -265,22 +265,27 @@ exactly the kind of high-frequency, off-camera-plane signal a racket-mounted IMU
 that work: the hardware (designed by a teammate, in parallel with everything else in this
 document) and the software fusion prototype that will eventually consume its data.
 
-**Hardware — rev1.0 schematics** (designed by [@kyriosaa](https://github.com/kyriosaa)):
-an ESP32-C6-WROOM-1 microcontroller paired with an ST LSM6DSO 6-axis IMU
-(accelerometer + gyroscope) for sensing, a TP4056/DW01A/FS8205A single-cell Li-ion
-charging and protection circuit, and an HT7833 regulator for the board's 3.3V rail.
-Full KiCad project: `hardware/skilleye_prototype/` (schematics, PCB layout, component
-libraries, datasheets); rendered schematic sheets below, source at
-`docs/schematics/prototype/rev1.0/`.
+**Hardware — rev2.1, finalized** (designed by [@kyriosaa](https://github.com/kyriosaa)):
+the design went through two iterations. Rev1.0/1.1 was a fully custom board — an
+ESP32-C6-WROOM-1 microcontroller, an ST LSM6DSO 6-axis IMU, and discrete
+TP4056/DW01A/FS8205A charging-protection ICs, refined once (rev1.1: added a VBUS sense
+divider). Rev2.0/2.1 then deliberately traded that custom-everything approach for
+off-the-shelf breakout modules — a **GY-521** (the standard MPU6050 accelerometer+gyroscope
+breakout — the exact sensor originally proposed in the team's first discussion of this
+feature, Section 2.7's origin) on a **Seeed Studio XIAO** microcontroller, with a **TP4056**
+charging breakout — lower assembly risk for a first real board, at the cost of a larger
+footprint than the fully custom rev1.0. Full PCB layout is done (`skilleye_2.0.kicad_pcb`),
+and the project now includes a PCBWay logo asset, indicating the design is being prepared
+for fabrication. Full KiCad project: `hardware/skilleye_2.0/`; rendered schematic below,
+source at `docs/schematics/2.0/rev2.1/`. The earlier rev1.0/1.1 custom-board files remain in
+`hardware/skilleye_1.0/` / `docs/schematics/1.0/` for reference.
 
-| Charging | MCU + IMU | Regulator |
-|---|---|---|
-| ![Charging schematic](docs/schematics/prototype/rev1.0/skilleye_prototype-Charging.svg) | ![MCU and IMU schematic](docs/schematics/prototype/rev1.0/skilleye_prototype-MCU.svg) | ![Regulator schematic](docs/schematics/prototype/rev1.0/skilleye_prototype-Regulator.svg) |
+![Skilleye 2.0 schematic (rev2.1, finalized)](docs/schematics/2.0/rev2.1/skilleye_2.0.svg)
 
-This is schematic-complete design work, not yet a built board: no physical prototype has
-been assembled, no firmware has been written, and no real sensor data has been collected.
-The modeling work below is written accordingly — it does not depend on or wait for the
-physical board, and does not claim to have used it.
+This is a finalized, PCB-laid-out design, not yet a built board: no physical prototype has
+been assembled or fabricated, no firmware has been written, and no real sensor data has been
+collected. The modeling work below is written accordingly — it does not depend on or wait
+for the physical board, and does not claim to have used it.
 
 **Software architecture** (`ml/skilleye/imu_fusion.py`): `STGCN` is refactored to expose
 its pooled pre-classifier features via `extract_features()` (`ml/skilleye/stgcn_model.py`,
@@ -301,11 +306,12 @@ numbers must not be cited alongside Section 3.2's cross-validated 82.4% ± 3.8%.
 **Path to real data**: a documented collection protocol (~100-200 Hz logging, a tap-based
 manual sync event between the video and IMU streams, resampled to the same fixed frame
 count skeletons already use) is in
-`docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md` — written before the
-rev1.0 schematic existed, so it describes a generic MPU6050+ESP32 pairing rather than the
-LSM6DSO+ESP32-C6 above; the collection method (sampling rate, sync approach) still applies
-unchanged. Swapping `synthetic_imu_from_skeleton()`'s call site for a real-data loader is
-the only code change needed once the board above is built and recordings exist.
+`docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md` — written before either
+hardware revision existed, describing a generic MPU6050+ESP32 pairing; the rev2.x board
+above (GY-521/MPU6050 on a Seeed XIAO) matches that description closely, and the collection
+method (sampling rate, sync approach) applies unchanged either way. Swapping
+`synthetic_imu_from_skeleton()`'s call site for a real-data loader is the only code change
+needed once the board above is built and recordings exist.
 
 ## 3. Results
 
@@ -457,10 +463,12 @@ Remaining work, in priority order:
 3. **Own side-view, higher-frame-rate recordings, plus a physical sensor board** —
    required for the joint-angle-based error-detection rules in Section 4.7, expected to
    resolve the volley/groundstroke confusion identified in Section 4.1, and needed to move
-   Section 2.7's sensor-fusion prototype from synthetic to real data. Rev1.0 schematics
-   (ESP32-C6 + LSM6DSO) exist in `hardware/skilleye_prototype/`; assembly, firmware, and
-   the collection protocol (sampling rate, synchronization method) are scoped in
-   `docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md`. Once real logs
+   Section 2.7's sensor-fusion prototype from synthetic to real data. The finalized rev2.1
+   design (GY-521/MPU6050 + Seeed XIAO) exists in `hardware/skilleye_2.0/`, PCB-laid-out and
+   apparently prepared for fabrication (a PCBWay asset was added alongside it) but not yet
+   built; assembly, firmware, and the collection protocol (sampling rate, synchronization
+   method) are scoped in `docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md`.
+   Once real logs
    exist, retraining and cross-validating `FusedBeginnerExpertModel` on them — following
    the same 5-fold rigor as Section 3.2 — is the follow-up this prototype sets up for.
 4. **Path A: synthetic perturbation** of known-good motion (known joint-angle/timing offsets
@@ -514,9 +522,11 @@ ml/results/
   stroke_classifier/                early 5-class iteration, kept for reference
   stroke_classifier_v2/             6-class + augmentation, single split, trained weights + metrics
 
-hardware/skilleye_prototype/       KiCad rev1.0 PCB project (§2.7): ESP32-C6 + LSM6DSO IMU,
-                                    battery charging/regulation -- schematic only, not yet built
-docs/schematics/prototype/rev1.0/  rendered schematic PDFs/SVGs for the board above
+hardware/skilleye_2.0/             KiCad rev2.1 PCB project (§2.7, finalized): GY-521/MPU6050 +
+                                    Seeed XIAO + TP4056 charging -- PCB-laid-out, not yet built
+hardware/skilleye_1.0/             earlier rev1.0/1.1 custom-board iteration, kept for reference
+docs/schematics/2.0/rev2.1/        rendered schematic PDF/SVG for the current (rev2.1) board
+docs/schematics/1.0/               rendered schematics for the earlier rev1.0/1.1 iteration
 ```
 
 Dataset (not included in this repository — see `ml/skilleye/README.md` for how to fetch it):
