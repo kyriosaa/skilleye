@@ -592,7 +592,7 @@
     "last_paths": {
       "idf": "",
       "netlist": "",
-      "plot": "",
+      "plot": "D:/projects/skilleye/hardware/skilleye_2.0/drawings/",
       "specctra_dsn": "",
       "vrml": ""
     },

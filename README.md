@@ -298,7 +298,7 @@ for fabrication. Full KiCad project: `hardware/skilleye_2.0/`; rendered schemati
 source at `docs/schematics/2.0/rev2.1/`. The earlier rev1.0/1.1 custom-board files remain in
 `hardware/skilleye_1.0/` / `docs/schematics/1.0/` for reference.
 
-![Skilleye 2.0 schematic (rev2.1, finalized)](docs/schematics/2.0/rev2.1/skilleye_2.0.svg)
+![Skilleye 2.0 schematic (rev2.1, finalized)](docs/schematics/2.0/rev2.1/skilleye_schematic_2.1.svg)
 
 Where this board would sit on the racket, and what its two sensing modalities are meant to
 pick up (both are concept diagrams — no physical unit has been mounted yet):
