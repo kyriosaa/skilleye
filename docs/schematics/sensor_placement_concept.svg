@@ -19,7 +19,7 @@
   <!-- throat (drawn first, fully behind the head so the ellipse hides its top seam) -->
   <path d="M 175 180 L 245 180 L 232 316 L 188 316 Z" fill="#ffffff" stroke="#14130f" stroke-width="3" filter="url(#softShadow2)"/>
 
-  <!-- head (opaque, on top of the throat's upper portion -- no visible seam) -->
+  <!-- head (opaque, on top of the throat's upper portion, no visible seam) -->
   <ellipse cx="210" cy="150" rx="118" ry="132" fill="url(#racketGrad)" stroke="#14130f" stroke-width="3" filter="url(#softShadow2)"/>
   <g stroke="#8a8779" stroke-width="0.7" opacity="0.55">
     <clipPath id="headClip"><ellipse cx="210" cy="150" rx="114" ry="128"/></clipPath>
@@ -35,7 +35,7 @@
     </g>
   </g>
 
-  <!-- handle (top overlaps the throat's bottom by matching width -- no seam) -->
+  <!-- handle (top overlaps the throat's bottom by matching width, no seam) -->
   <rect x="188" y="310" width="44" height="202" rx="10" fill="#ffffff" stroke="#14130f" stroke-width="3" filter="url(#softShadow2)"/>
   <rect x="188" y="322" width="44" height="30" rx="8" fill="#e6e3da" opacity="0.6"/>
   <rect x="188" y="368" width="44" height="10" fill="#e6e3da" opacity="0.4"/>
