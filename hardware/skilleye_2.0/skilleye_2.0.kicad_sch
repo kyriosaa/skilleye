@@ -5,13 +5,12 @@
 	(uuid "d8a7564c-1896-4459-8d91-f745b165ebeb")
 	(paper "A4")
 	(title_block
-		(title "Skilleye")
+		(title "SkillEye")
 		(date "2026-07-27")
 		(rev "2.1")
 		(company "National Taipei University of Technology - Dept. of EECS")
-		(comment 1 "SkillEye")
-		(comment 2 "Designer: Purit Hongjirakul")
-		(comment 3 "https://github.com/rizalfanex/SkillEye")
+		(comment 1 "Designer: Purit Hongjirakul")
+		(comment 2 "https://github.com/rizalfanex/SkillEye")
 	)
 	(lib_symbols
 		(symbol "Device:Battery_Cell"

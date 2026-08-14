@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkillEye — Skeleton-Based Motion Quality Analysis for Racket Sports</title>
+  <meta name="description"
+    content="SkillEye analyzes a player's movement, not the ball. A wearable IMU and computer-vision pose pipeline score swing quality with joint- and phase-level correction feedback. 8th CTCI Science & Technology Creativity Competition 2026.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --ink: #090E1A;
+      --ink-2: #0D1424;
+      --surface: #131C30;
+      --surface-2: #1A2540;
+      --line: #25324D;
+      --line-soft: #1C2740;
+      --trace: #45C4FF;
+      /* skeleton lines / primary accent */
+      --trace-dim: #2C6C93;
+      --joint: #FFB020;
+      /* joint markers / secondary accent */
+      --good: #37D39B;
+      /* score / positive */
+      --text: #EAEFF8;
+      --muted: #8B99B2;
+      --muted-2: #5E6C86;
+      --maxw: 1140px;
+      --r: 14px;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      html {
+        scroll-behavior: auto
+      }
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1100px 620px at 78% -8%, rgba(69, 196, 255, .10), transparent 60%),
+        radial-gradient(900px 520px at 10% 6%, rgba(255, 176, 32, .06), transparent 55%),
+        var(--ink);
+      color: var(--text);
+      font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 0 24px
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: "Archivo", sans-serif;
+      line-height: 1.04;
+      letter-spacing: -.02em;
+      margin: 0
+    }
+
+    a {
+      color: inherit
+    }
+
+    .mono {
+      font-family: "IBM Plex Mono", monospace
+    }
+
+    .eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--trace);
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 22px;
+      height: 1.5px;
+      background: var(--trace);
+      opacity: .7
+    }
+
+    /* ---------- nav ---------- */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(10px);
+      background: rgba(9, 14, 26, .72);
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .nav-in {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-family: "Archivo";
+      font-weight: 800;
+      letter-spacing: -.01em;
+      font-size: 19px
+    }
+
+    .brand svg {
+      display: block
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      align-items: center
+    }
+
+    .nav-links a {
+      font-size: 14.5px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color .18s
+    }
+
+    .nav-links a:hover {
+      color: var(--text)
+    }
+
+    .nav-cta {
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 15px;
+      border-radius: 9px;
+      background: var(--trace);
+      color: #04121C;
+      text-decoration: none;
+      transition: transform .15s, box-shadow .15s;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(69, 196, 255, .28)
+    }
+
+    @media(max-width:760px) {
+      .nav-links a:not(.nav-cta) {
+        display: none
+      }
+    }
+
+    /* ---------- hero ---------- */
+    header {
+      position: relative;
+      padding: 76px 0 68px
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 44px;
+      align-items: center
+    }
+
+    .hero-badge {
+      display: inline-block;
+      font-family: "IBM Plex Mono";
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      padding: 6px 12px;
+      border-radius: 999px;
+      margin-bottom: 22px;
+    }
+
+    .hero-badge b {
+      color: var(--joint);
+      font-weight: 600
+    }
+
+    h1.title {
+      font-size: clamp(44px, 6.6vw, 80px);
+      font-weight: 900;
+      margin-bottom: 20px
+    }
+
+    h1.title .grad {
+      background: linear-gradient(92deg, var(--trace), #8ad9ff 55%, var(--joint));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .lead {
+      font-size: 19px;
+      color: #C6D0E2;
+      max-width: 37ch;
+      margin-bottom: 14px
+    }
+
+    .lead-sub {
+      font-size: 15.5px;
+      color: var(--muted);
+      max-width: 44ch;
+      margin-bottom: 30px
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 34px
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 13px 22px;
+      border-radius: 11px;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform .15s, box-shadow .15s, background .15s, border-color .15s;
+    }
+
+    .btn-primary {
+      background: var(--trace);
+      color: #04121C
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(69, 196, 255, .3)
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--line)
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--trace);
+      color: var(--trace)
+    }
+
+    .chips {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .02), transparent);
+      border-radius: 12px;
+      padding: 12px 15px;
+      min-width: 118px;
+    }
+
+    .chip .n {
+      font-family: "Archivo";
+      font-weight: 800;
+      font-size: 25px;
+      letter-spacing: -.02em;
+      color: var(--text)
+    }
+
+    .chip .n .pm {
+      font-family: "IBM Plex Mono";
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--muted-2);
+      letter-spacing: 0
+    }
+
+    .chip .l {
+      font-size: 11.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-top: 2px
+    }
+
+    /* skeleton stage */
+    .stage {
+      position: relative;
+      aspect-ratio: 1/1;
+      border-radius: 20px;
+      background:
+        radial-gradient(120% 120% at 50% 40%, rgba(69, 196, 255, .08), transparent 62%),
+        linear-gradient(180deg, #0C1424, #0A101E);
+      border: 1px solid var(--line-soft);
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .03), 0 30px 80px -30px rgba(0, 0, 0, .7);
+    }
+
+    .stage::before {
+      /* grid floor */
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(var(--line-soft) 1px, transparent 1px), linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+      background-size: 34px 34px;
+      opacity: .35;
+      mask-image: radial-gradient(circle at 50% 55%, #000 30%, transparent 75%);
+    }
+
+    .stage svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%
+    }
+
+    .stage .tag {
+      position: absolute;
+      left: 16px;
+      bottom: 14px;
+      font-family: "IBM Plex Mono";
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .06em;
+    }
+
+    .stage .tag b {
+      color: var(--trace);
+      font-weight: 600
+    }
+
+    @media(max-width:880px) {
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 36px
+      }
+
+      .stage {
+        max-width: 420px;
+        margin: 0 auto;
+        width: 100%
+      }
+    }
+
+    /* ---------- generic section ---------- */
+    section {
+      padding: 64px 0;
+      border-top: 1px solid var(--line-soft)
+    }
+
+    .sec-head {
+      max-width: 60ch;
+      margin-bottom: 40px
+    }
+
+    .sec-head h2 {
+      font-size: clamp(28px, 3.6vw, 40px);
+      font-weight: 800;
+      margin: 14px 0 14px
+    }
+
+    .sec-head p {
+      color: var(--muted);
+      font-size: 16.5px;
+      margin: 0
+    }
+
+    /* insight */
+    .insight-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px
+    }
+
+    .insight-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 26px 26px 24px;
+    }
+
+    .insight-card.dim {
+      background: transparent;
+      border-style: dashed;
+      border-color: var(--line)
+    }
+
+    .insight-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex: 0 0 auto
+    }
+
+    .dot.a {
+      background: var(--muted-2)
+    }
+
+    .dot.b {
+      background: var(--trace);
+      box-shadow: 0 0 0 4px rgba(69, 196, 255, .14)
+    }
+
+    .insight-card p {
+      font-size: 15px;
+      color: var(--muted);
+      margin: 0
+    }
+
+    .insight-card.dim h3 {
+      color: var(--muted)
+    }
+
+    @media(max-width:720px) {
+      .insight-grid {
+        grid-template-columns: 1fr
+      }
+    }
+
+    /* pipeline */
+    .pipe {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      position: relative
+    }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 20px 16px;
+      position: relative;
+    }
+
+    .step .k {
+      font-family: "IBM Plex Mono";
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--trace);
+      letter-spacing: .1em
+    }
+
+    .step h3 {
+      font-size: 15.5px;
+      font-weight: 700;
+      margin: 12px 0 8px
+    }
+
+    .step p {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.5
+    }
+
+    .step .ico {
+      width: 34px;
+      height: 34px;
+      color: var(--trace);
+      margin-bottom: 2px
+    }
+
+    .fuse {
+      margin-top: 16px;
+      background: linear-gradient(100deg, rgba(255, 176, 32, .08), rgba(255, 176, 32, .02));
+      border: 1px solid rgba(255, 176, 32, .28);
+      border-radius: var(--r);
+      padding: 18px 22px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .fuse .ico {
+      width: 30px;
+      height: 30px;
+      color: var(--joint);
+      flex: 0 0 auto
+    }
+
+    .fuse p {
+      margin: 0;
+      font-size: 14.5px;
+      color: #E6D9BE
+    }
+
+    .fuse b {
+      color: var(--joint);
+      font-weight: 600
+    }
+
+    @media(max-width:900px) {
+      .pipe {
+        grid-template-columns: repeat(2, 1fr)
+      }
+    }
+
+    @media(max-width:520px) {
+      .pipe {
+        grid-template-columns: 1fr
+      }
+    }
+
+    /* hardware */
+    .hw-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px
+    }
+
+    .hw {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      overflow: hidden
+    }
+
+    .hw-img {
+      aspect-ratio: 16/10;
+      background:
+        repeating-linear-gradient(45deg, #0E1626, #0E1626 12px, #111B2E 12px, #111B2E 24px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted-2);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .hw-img .ph {
+      font-family: "IBM Plex Mono";
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .hw-img svg {
+      width: 40px;
+      height: 40px;
+      color: var(--trace-dim);
+      opacity: .7
+    }
+
+    .hw-body {
+      padding: 22px 24px
+    }
+
+    .hw-body .rev {
+      font-family: "IBM Plex Mono";
+      font-size: 12px;
+      color: var(--joint);
+      font-weight: 600;
+      letter-spacing: .08em
+    }
+
+    .hw-body h3 {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 8px 0 14px
+    }
+
+    .hw-body ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 9px
+    }
+
+    .hw-body li {
+      display: flex;
+      gap: 11px;
+      font-size: 14px;
+      color: var(--muted)
+    }
+
+    .hw-body li b {
+      color: var(--text);
+      font-weight: 600;
+      font-family: "IBM Plex Mono";
+      font-size: 12.5px;
+      min-width: 96px;
+      flex: 0 0 auto
+    }
+
+    @media(max-width:720px) {
+      .hw-grid {
+        grid-template-columns: 1fr
+      }
+    }
+
+    /* results */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 34px
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 24px
+    }
+
+    .stat .big {
+      font-family: "Archivo";
+      font-weight: 900;
+      font-size: 44px;
+      letter-spacing: -.03em;
+      line-height: 1
+    }
+
+    .stat .big .pm {
+      font-family: "IBM Plex Mono";
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--muted-2);
+      letter-spacing: 0
+    }
+
+    .stat .cap {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.45
+    }
+
+    .stat.a .big {
+      color: var(--trace)
+    }
+
+    .stat.b .big {
+      color: var(--joint)
+    }
+
+    .stat.c .big {
+      color: var(--good)
+    }
+
+    .fig-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px
+    }
+
+    .fig {
+      background: var(--ink-2);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      aspect-ratio: 16/9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      color: var(--muted-2);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .fig svg {
+      width: 34px;
+      height: 34px;
+      color: var(--trace-dim)
+    }
+
+    .fig .name {
+      font-family: "IBM Plex Mono";
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .fig .path {
+      font-family: "IBM Plex Mono";
+      font-size: 11px;
+      color: var(--muted-2);
+      word-break: break-all
+    }
+
+    @media(max-width:720px) {
+      .stat-row {
+        grid-template-columns: 1fr
+      }
+
+      .fig-grid {
+        grid-template-columns: 1fr
+      }
+    }
+
+    /* demo */
+    .demo-shell {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px -40px rgba(0, 0, 0, .8);
+    }
+
+    .demo-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--ink-2)
+    }
+
+    .demo-bar .dots {
+      display: flex;
+      gap: 6px
+    }
+
+    .demo-bar .dots i {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--line);
+      display: block
+    }
+
+    .demo-bar .url {
+      margin-left: 10px;
+      font-family: "IBM Plex Mono";
+      font-size: 12.5px;
+      color: var(--muted);
+      background: var(--ink);
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      padding: 5px 12px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .demo-frame {
+      position: relative;
+      width: 100%;
+      height: 640px;
+      background: var(--ink)
+    }
+
+    .demo-frame iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block
+    }
+
+    .demo-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .demo-empty svg {
+      width: 52px;
+      height: 52px;
+      color: var(--trace-dim)
+    }
+
+    .demo-empty h3 {
+      font-size: 20px;
+      font-weight: 800
+    }
+
+    .demo-empty p {
+      color: var(--muted);
+      max-width: 52ch;
+      margin: 0;
+      font-size: 15px
+    }
+
+    .demo-empty code {
+      font-family: "IBM Plex Mono";
+      font-size: 13px;
+      background: var(--ink-2);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 3px 8px;
+      color: var(--trace);
+    }
+
+    .demo-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 22px;
+      text-align: left;
+      max-width: 720px;
+      width: 100%;
+    }
+
+    .demo-steps div {
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      padding: 14px
+    }
+
+    .demo-steps .k {
+      font-family: "IBM Plex Mono";
+      font-size: 11px;
+      color: var(--joint);
+      font-weight: 600
+    }
+
+    .demo-steps p {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 7px 0 0
+    }
+
+    @media(max-width:640px) {
+      .demo-steps {
+        grid-template-columns: 1fr
+      }
+
+      .demo-frame {
+        height: 520px
+      }
+    }
+
+    /* footer */
+    footer {
+      border-top: 1px solid var(--line-soft);
+      padding: 44px 0 60px;
+      margin-top: 8px
+    }
+
+    .foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      align-items: flex-start
+    }
+
+    .foot .lede {
+      max-width: 42ch
+    }
+
+    .foot .lede .brand {
+      margin-bottom: 12px
+    }
+
+    .foot .lede p {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 0
+    }
+
+    .foot .meta {
+      font-family: "IBM Plex Mono";
+      font-size: 12.5px;
+      color: var(--muted-2);
+      text-align: right;
+      line-height: 1.9
+    }
+
+    .foot .meta a {
+      color: var(--muted);
+      text-decoration: none
+    }
+
+    .foot .meta a:hover {
+      color: var(--trace)
+    }
+
+    @media(max-width:640px) {
+      .foot .meta {
+        text-align: left
+      }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity .7s ease, transform .7s ease
+    }
+
+    .reveal.in {
+      opacity: 1;
+      transform: none
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============ NAV ============ -->
+  <nav>
+    <div class="nav-in">
+      <div class="brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="6" r="2.4" fill="#FFB020" />
+          <path d="M12 8.4V13M12 13l-4 4M12 13l4 4M12 10l-4-1.5M12 10l4-1.5" stroke="#45C4FF" stroke-width="1.7"
+            stroke-linecap="round" />
+          <circle cx="8" cy="17" r="1.5" fill="#45C4FF" />
+          <circle cx="16" cy="17" r="1.5" fill="#45C4FF" />
+          <circle cx="8" cy="8.5" r="1.3" fill="#45C4FF" />
+          <circle cx="16" cy="8.5" r="1.3" fill="#45C4FF" />
+        </svg>
+        SkillEye
+      </div>
+      <div class="nav-links">
+        <a href="#insight">Insight</a>
+        <a href="#pipeline">How it works</a>
+        <a href="#hardware">Hardware</a>
+        <a href="#results">Results</a>
+        <a href="#demo" class="nav-cta">Try the demo</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <header>
+    <div class="wrap hero">
+      <div>
+        <span class="hero-badge">8th CTCI Science &amp; Technology Creativity Competition <b>· 2026</b></span>
+        <h1 class="title">Score the <span class="grad">swing</span>,<br>not the ball.</h1>
+        <p class="lead">SkillEye reads a player's <em>movement</em> — the elbow at contact, the hip rotation, the
+          follow-through — and scores how well the swing was performed.</p>
+        <p class="lead-sub">A wearable IMU and a computer-vision pose pipeline share one skeleton representation,
+          producing per-joint, per-phase correction feedback a coach would actually give.</p>
+        <div class="hero-cta">
+          <a href="#demo" class="btn btn-primary">
+            Try the live demo
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </a>
+          <a href="https://github.com/rizalfanex/SkillEye" class="btn btn-ghost" target="_blank" rel="noopener">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33c-2.23.49-2.7-1.08-2.7-1.08-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+            </svg>
+            View source
+          </a>
+        </div>
+        <div class="chips">
+          <div class="chip">
+            <div class="n">81.7<span class="pm">%&nbsp;±4.9</span></div>
+            <div class="l">Stroke classifier</div>
+          </div>
+          <div class="chip">
+            <div class="n">82.4<span class="pm">%&nbsp;±3.8</span></div>
+            <div class="l">Beginner / expert</div>
+          </div>
+          <div class="chip">
+            <div class="n">1980<span class="pm">/1980</span></div>
+            <div class="l">Clips, 0 failures</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- animated pose skeleton -->
+      <div class="stage" aria-label="Animated tennis swing skeleton">
+        <svg id="skeleton" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <g id="edges" stroke="var(--trace)" stroke-width="2.4" stroke-linecap="round" fill="none"></g>
+          <line id="racket" stroke="var(--joint)" stroke-width="2.2" stroke-linecap="round" opacity=".85" />
+          <g id="joints"></g>
+        </svg>
+        <div class="tag"><b>RTMPose</b> · COCO-17 keypoints · ST-GCN input</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ INSIGHT ============ -->
+  <section id="insight">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">The insight</span>
+        <h2>Ball trajectory can't tell you why a shot went wrong.</h2>
+        <p>Consumer tools like SwingVision answer “did the shot land in.” But movement quality — what the body did — is
+          the input a coach actually reasons about, and it isn't derivable from where the ball went.</p>
+      </div>
+      <div class="insight-grid">
+        <div class="insight-card dim reveal">
+          <h3><span class="dot a"></span>What existing apps see</h3>
+          <p>Ball tracking and scorekeeping. Outcome, not cause. A player learns <em>that</em> they missed, never
+            <em>why</em> — no read on elbow position, hip timing, or follow-through.
+          </p>
+        </div>
+        <div class="insight-card reveal">
+          <h3><span class="dot b"></span>What SkillEye sees</h3>
+          <p>A normalized 2D skeleton per swing, modeled over time, compared against expert-clip templates — surfacing
+            the specific joint and phase where the motion drifted, with a plain-language correction.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PIPELINE ============ -->
+  <section id="pipeline">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">How it works</span>
+        <h2>One skeleton representation, from raw swing to coaching cue.</h2>
+        <p>A single pose sequence drives every downstream task — stroke type, skill level, and per-phase quality scoring
+          — following two established lines of work: RTMPose for real-time pose, ST-GCN for skeleton-based modeling.</p>
+      </div>
+
+      <div class="pipe">
+        <div class="step reveal">
+          <svg class="ico" viewBox="0 0 32 32" fill="none">
+            <rect x="4" y="7" width="24" height="18" rx="2.5" stroke="currentColor" stroke-width="2" />
+            <circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="2" />
+            <path d="M22 11h2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <div class="k">01</div>
+          <h3>Swing video</h3>
+          <p>A short clip of a single stroke, phone or fixed camera.</p>
+        </div>
+        <div class="step reveal">
+          <svg class="ico" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="8" r="3" stroke="currentColor" stroke-width="2" />
+            <path d="M16 11v7m0 0-5 6m5-6 5 6m-5-9-5-2m5 2 5-2" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" />
+          </svg>
+          <div class="k">02</div>
+          <h3>Pose extraction</h3>
+          <p>RTMPose → primary-subject tracking → hip-anchored, torso-scaled COCO-17 keypoints.</p>
+        </div>
+        <div class="step reveal">
+          <svg class="ico" viewBox="0 0 32 32" fill="none">
+            <circle cx="8" cy="9" r="2.5" stroke="currentColor" stroke-width="2" />
+            <circle cx="24" cy="9" r="2.5" stroke="currentColor" stroke-width="2" />
+            <circle cx="16" cy="23" r="2.5" stroke="currentColor" stroke-width="2" />
+            <path d="M10 10.5 14.5 21M22 10.5 17.5 21M10.5 9h11" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <div class="k">03</div>
+          <h3>ST-GCN model</h3>
+          <p>Spatio-temporal graph conv over the skeleton graph — spatial edges follow the body, temporal edges follow
+            each joint through time.</p>
+        </div>
+        <div class="step reveal">
+          <svg class="ico" viewBox="0 0 32 32" fill="none">
+            <path d="M5 25V7M5 25h22" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M9 20l5-6 4 3 6-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          <div class="k">04</div>
+          <h3>Quality score</h3>
+          <p>Phase detection + per-joint deviation from expert templates, as z-scores flagged by phase.</p>
+        </div>
+        <div class="step reveal">
+          <svg class="ico" viewBox="0 0 32 32" fill="none">
+            <path d="M6 6h20v14H14l-6 5v-5H6V6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+            <path d="M11 12h10M11 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <div class="k">05</div>
+          <h3>Correction feedback</h3>
+          <p>Rule-based cues, optionally rephrased by an LLM into one coaching paragraph — grounded only in flagged
+            deviations.</p>
+        </div>
+      </div>
+
+      <div class="fuse reveal">
+        <svg class="ico" viewBox="0 0 32 32" fill="none">
+          <path d="M16 3v6m0 14v6M3 16h6m14 0h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          <circle cx="16" cy="16" r="5" stroke="currentColor" stroke-width="2" />
+        </svg>
+        <p><b>Sensor fusion.</b> A wrist-worn IMU adds motion the camera can't see — angular velocity through the swing
+          — fused with the visual skeleton to sharpen phase timing and catch off-plane rotation.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HARDWARE ============ -->
+  <section id="hardware">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">The wearable</span>
+        <h2>Two revisions of a wrist IMU, designed from scratch.</h2>
+        <p>Custom KiCad boards pairing an inertial sensor with a microcontroller and LiPo power — shrinking from an
+          ESP32 prototype to a compact XIAO-based v2.</p>
+      </div>
+      <div class="hw-grid">
+        <div class="hw reveal">
+          <div class="hw-img">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect x="5" y="8" width="22" height="16" rx="2" stroke="currentColor" stroke-width="2" />
+              <rect x="11" y="13" width="10" height="6" rx="1" stroke="currentColor" stroke-width="2" />
+              <path d="M5 12H2m3 4H2m3 4H2m28-8h-3m3 4h-3m3 4h-3" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+            </svg>
+            <div class="ph">Drop board photo / render here</div>
+          </div>
+          <div class="hw-body">
+            <div class="rev">REV 1.0</div>
+            <h3>ESP32 prototype</h3>
+            <ul>
+              <li><b>MCU</b><span>ESP32 (Espressif), Wi-Fi/BLE telemetry</span></li>
+              <li><b>IMU</b><span>LSM6DSO 6-axis accelerometer + gyro</span></li>
+              <li><b>Power</b><span>FS8205A protection, LiPo cell</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="hw reveal">
+          <div class="hw-img">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect x="8" y="6" width="16" height="20" rx="2" stroke="currentColor" stroke-width="2" />
+              <rect x="12" y="11" width="8" height="6" rx="1" stroke="currentColor" stroke-width="2" />
+              <path d="M12 6V3m8 3V3M12 26v3m8-3v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <div class="ph">Drop board photo / render here</div>
+          </div>
+          <div class="hw-body">
+            <div class="rev">REV 2.0</div>
+            <h3>XIAO compact build</h3>
+            <ul>
+              <li><b>MCU</b><span>Seeed Studio XIAO — smaller footprint</span></li>
+              <li><b>IMU</b><span>GY-521 (MPU-6050) 6-axis</span></li>
+              <li><b>Power</b><span>TP4056 charge controller, LiPo</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section id="results">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Results</span>
+        <h2>Real trained numbers on held-out subjects.</h2>
+        <p>All figures are 5-fold subject-disjoint cross-validation on the THETIS dataset — the split that holds up to
+          “is this just a lucky partition?”, not a projected target.</p>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat a reveal">
+          <div class="big">81.7<span class="pm">% ±4.9</span></div>
+          <div class="cap">6-class stroke-type classification (forehand, backhand, volleys, serve, smash).</div>
+        </div>
+        <div class="stat b reveal">
+          <div class="big">82.4<span class="pm">% ±3.8</span></div>
+          <div class="cap">Beginner-vs-expert motion-quality proxy classifier.</div>
+        </div>
+        <div class="stat c reveal">
+          <div class="big">1980<span class="pm">/1980</span></div>
+          <div class="cap">Clips extracted through the pose pipeline — 0 dropped, 0 failed, all 55 subjects.</div>
+        </div>
+      </div>
+
+      <div class="fig-grid">
+        <div class="fig reveal">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect x="5" y="5" width="22" height="22" rx="2" stroke="currentColor" stroke-width="2" />
+            <path d="M5 13h22M5 21h22M13 5v22M21 5v22" stroke="currentColor" stroke-width="1.6" />
+          </svg>
+          <div class="name">Stroke confusion matrix</div>
+          <div class="path">skilleye-website/stroke_confusion_matrix.png</div>
+        </div>
+        <div class="fig reveal">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M5 27V5m0 22h22" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M8 22c4-1 6-9 10-9s4 6 8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              fill="none" />
+          </svg>
+          <div class="name">Training curves</div>
+          <div class="path">skilleye-website/training_curves.png</div>
+        </div>
+        <div class="fig reveal">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect x="5" y="14" width="5" height="13" stroke="currentColor" stroke-width="2" />
+            <rect x="13" y="9" width="5" height="18" stroke="currentColor" stroke-width="2" />
+            <rect x="21" y="5" width="5" height="22" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <div class="name">Accuracy across iterations</div>
+          <div class="path">skilleye-website/accuracy_comparison.png</div>
+        </div>
+        <div class="fig reveal">
+          <svg viewBox="0 0 32 32" fill="none">
+            <circle cx="11" cy="8" r="2" fill="currentColor" />
+            <path d="M11 10v6m0 0-3 5m3-5 3 5m-3-8-3-1m3 1 3-1" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" />
+            <path d="M22 6v20" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3" />
+          </svg>
+          <div class="name">Quality comparison example</div>
+          <div class="path">skilleye-website/quality_comparison_example.png</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section id="demo">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Try it live</span>
+        <h2>Score a real held-out swing.</h2>
+        <p>The interactive scoring demo runs below. Pick a validation clip, see its predicted stroke, quality score,
+          per-joint deviation table, and correction suggestions.</p>
+      </div>
+
+      <div class="demo-shell reveal">
+        <div class="demo-bar">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <div class="url mono" id="demoUrlLabel">skilleye-demo · streamlit</div>
+        </div>
+        <div class="demo-frame">
+          <iframe id="demoFrame" title="SkillEye scoring demo" loading="lazy" style="display:none"></iframe>
+          <div class="demo-empty" id="demoEmpty">
+            <svg viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="2" />
+              <path d="M13 11l7 5-7 5V11Z" fill="currentColor" />
+            </svg>
+            <h3>Connect your Streamlit demo</h3>
+            <p>Deploy <code>ml/skilleye/app.py</code> to Streamlit Community Cloud , then set its URL in
+              <code>DEMO_URL</code> at the bottom of this file — the live app appears right here.
+            </p>
+            <div class="demo-steps">
+              <div>
+                <div class="k">STEP 1</div>
+                <p>Push the repo with <code>best_model.pt</code>, <code>templates.json</code>, and a
+                  <code>skeletons/</code> subset committed.
+                </p>
+              </div>
+              <div>
+                <div class="k">STEP 2</div>
+                <p>On share.streamlit.io, point a new app at <code>app.py</code> with a CPU-only requirements file.</p>
+              </div>
+              <div>
+                <div class="k">STEP 3</div>
+                <p>Paste the <code>*.streamlit.app</code> URL into <code>DEMO_URL</code> here and redeploy the site.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="wrap foot">
+      <div class="lede">
+        <div class="brand">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="6" r="2.4" fill="#FFB020" />
+            <path d="M12 8.4V13M12 13l-4 4M12 13l4 4M12 10l-4-1.5M12 10l4-1.5" stroke="#45C4FF" stroke-width="1.7"
+              stroke-linecap="round" />
+            <circle cx="8" cy="17" r="1.5" fill="#45C4FF" />
+            <circle cx="16" cy="17" r="1.5" fill="#45C4FF" />
+          </svg>
+          SkillEye
+        </div>
+        <p>Skeleton-based motion quality analysis for racket sports — addressing the training-methods and
+          injury-prevention themes through one shared movement representation.</p>
+      </div>
+      <div class="meta">
+        8th CTCI Science &amp; Technology<br>Creativity Competition · 2026<br>
+        <a href="https://github.com/rizalfanex/SkillEye" target="_blank"
+          rel="noopener">github.com/rizalfanex/SkillEye</a><br>
+        Team · Purit, Rizal, Rachel, Jeslin, Tracy
+      </div>
+    </div>
+  </footer>
+
+  <script>
+
+    const DEMO_URL = "https://skilleye-demo-uxxwdwuxm4msegj7zzcrqq.streamlit.app/";
+    (function () {
+      if (DEMO_URL) {
+        const f = document.getElementById('demoFrame');
+        f.src = DEMO_URL; f.style.display = 'block';
+        document.getElementById('demoEmpty').style.display = 'none';
+        document.getElementById('demoUrlLabel').textContent = DEMO_URL.replace(/^https?:\/\//, '');
+      }
+    })();
+
+    /* ====== animated pose skeleton (COCO-17, real edge list from the repo) ====== */
+    const EDGES = [[0, 1], [0, 2], [1, 3], [2, 4], [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], [5, 11], [6, 12], [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [0, 5], [0, 6]];
+    // two swing keyframes (forehand): [x,y] per joint, viewBox 300x400
+    const POSE_A = [[150, 70], [143, 64], [157, 64], [136, 68], [164, 68], [125, 110], [175, 110], [110, 150], [215, 130], [120, 185], [250, 105], [135, 200], [165, 200], [128, 270], [172, 270], [124, 340], [176, 340]];
+    const POSE_B = [[150, 66], [143, 60], [157, 60], [136, 64], [164, 64], [126, 110], [174, 110], [100, 140], [150, 90], [85, 175], [120, 55], [135, 200], [165, 200], [130, 270], [170, 270], [126, 340], [174, 340]];
+    const jg = document.getElementById('joints'), eg = document.getElementById('edges'), racket = document.getElementById('racket');
+    const circles = [], lines = [];
+    const NOSE_HEAD = [0, 1, 2, 3, 4];
+    POSE_A.forEach((p, i) => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      const r = i === 0 ? 4.5 : NOSE_HEAD.includes(i) ? 2 : 3.4;
+      c.setAttribute('r', r);
+      c.setAttribute('fill', NOSE_HEAD.includes(i) ? '#45C4FF' : '#FFB020');
+      if (!NOSE_HEAD.includes(i)) { c.setAttribute('stroke', '#0A101E'); c.setAttribute('stroke-width', '1'); }
+      jg.appendChild(c); circles.push(c);
+    });
+    EDGES.forEach(() => {
+      const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      eg.appendChild(l); lines.push(l);
+    });
+    const reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    function ease(t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function draw(k) {
+      const pts = POSE_A.map((a, i) => [a[0] + (POSE_B[i][0] - a[0]) * k, a[1] + (POSE_B[i][1] - a[1]) * k]);
+      circles.forEach((c, i) => { c.setAttribute('cx', pts[i][0]); c.setAttribute('cy', pts[i][1]); });
+      EDGES.forEach((e, i) => { const l = lines[i]; l.setAttribute('x1', pts[e[0]][0]); l.setAttribute('y1', pts[e[0]][1]); l.setAttribute('x2', pts[e[1]][0]); l.setAttribute('y2', pts[e[1]][1]); });
+      // racket: extend from elbow(8)->wrist(10) outward
+      const el = pts[8], wr = pts[10], dx = wr[0] - el[0], dy = wr[1] - el[1];
+      racket.setAttribute('x1', wr[0]); racket.setAttribute('y1', wr[1]);
+      racket.setAttribute('x2', wr[0] + dx * 0.9); racket.setAttribute('y2', wr[1] + dy * 0.9);
+    }
+    if (reduce) { draw(0.35); }
+    else {
+      let start = null;
+      function loop(ts) {
+        if (!start) start = ts;
+        const t = ((ts - start) / 2600) % 1;           // full cycle
+        const k = ease(t < .5 ? t * 2 : (1 - t) * 2);      // A->B->A
+        draw(k);
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    }
+
+    /* ====== scroll reveal ====== */
+    const io = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: .14 });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  </script>
+</body>
+
+</html>

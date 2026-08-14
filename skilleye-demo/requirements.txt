@@ -1,0 +1,11 @@
+# SkillEye demo — CPU-only deps for Streamlit Community Cloud.
+# The CPU torch index keeps the wheel small (~200MB) instead of pulling the
+# ~2GB CUDA build, which can time out or blow past Cloud's resource limits.
+# NOTE: rtmlib / onnxruntime are intentionally absent — they are only used by
+# the offline pose-extraction step (batch_extract.py), not by this demo.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+numpy==2.2.6
+matplotlib
+streamlit==1.58.0
+requests
