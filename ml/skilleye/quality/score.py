@@ -14,6 +14,7 @@ import numpy as np
 
 from quality.phases import split_phases, PHASES
 from quality.angles import phase_mean_angles
+from quality.correlation import JOINT_ORDER, conditional_zscore
 
 FLAG_THRESHOLD = 1.5
 SCORE_SCALE = 15.0
@@ -109,5 +110,63 @@ def score_clip(kpts, stroke_class, templates):
         overall_score = 100.0 - float(np.clip(np.mean(abs_z_values) * SCORE_SCALE, 0, 100))
     else:
         overall_score = 50.0  # no comparable (phase, joint) data at all
+
+    return {"overall_score": overall_score, "table": table, "suggestions": suggestions}
+
+
+def score_clip_correlated(kpts, stroke_class, covariance):
+    """Module A: like score_clip, but each (phase, joint) is z-scored against
+    its *conditional* mean/variance given the other joints in that phase (via
+    the phase's covariance matrix), instead of independently. Design:
+    docs/superpowers/specs/2026-08-14-correlated-zscore-module-a-design.md.
+
+    kpts: (T, 17, 2) normalized skeleton. stroke_class: a key of
+    STROKE_CLASSES. covariance: covariance[stroke][phase] -> {"joint_order",
+    "mean", "cov", "n"} (the "covariance" value from templates.json, built by
+    build_expert_templates.compute_covariance_templates).
+
+    Returns the same shape as score_clip: {"overall_score", "table",
+    "suggestions"}. A (phase, joint) whose phase has no covariance entry at
+    all (too few expert clips, per compute_covariance_templates) is surfaced
+    as "insufficient template data", same as score_clip does for a missing
+    per-joint template entry.
+    """
+    phases = split_phases(kpts)
+    stroke_covariance = covariance.get(stroke_class, {})
+
+    table = []
+    abs_z_values = []
+    suggestions = []
+
+    for phase in PHASES:
+        phase_means = phase_mean_angles(phases[phase])
+        entry = stroke_covariance.get(phase)
+
+        if entry is None or any(phase_means[joint] is None for joint in JOINT_ORDER):
+            for joint, value in phase_means.items():
+                if value is None:
+                    continue  # this clip's phase had no frames -- nothing to score for this joint
+                table.append({"phase": phase, "joint": joint, "value": value,
+                              "z": None, "flagged": False, "note": "insufficient template data"})
+            continue
+
+        values = np.array([phase_means[joint] for joint in JOINT_ORDER])
+        mean = np.array(entry["mean"])
+        cov = np.array(entry["cov"])
+        zs = conditional_zscore(values, mean, cov)
+
+        for joint, z in zip(JOINT_ORDER, zs):
+            z = float(z)
+            flagged = abs(z) > FLAG_THRESHOLD
+            table.append({"phase": phase, "joint": joint, "value": phase_means[joint],
+                          "z": z, "flagged": flagged, "note": None})
+            abs_z_values.append(abs(z))
+            if flagged:
+                suggestions.append(suggestion_text(joint, phase, z))
+
+    if abs_z_values:
+        overall_score = 100.0 - float(np.clip(np.mean(abs_z_values) * SCORE_SCALE, 0, 100))
+    else:
+        overall_score = 50.0
 
     return {"overall_score": overall_score, "table": table, "suggestions": suggestions}

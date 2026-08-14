@@ -1,6 +1,7 @@
 import numpy as np
 
-from quality.score import score_clip, suggestion_text
+from quality.score import score_clip, score_clip_correlated, suggestion_text
+from quality.correlation import JOINT_ORDER
 from quality.keypoints import (
     L_SHOULDER, R_SHOULDER, L_ELBOW, R_ELBOW, L_WRIST, R_WRIST,
     L_HIP, R_HIP, L_KNEE, R_KNEE, L_ANKLE, R_ANKLE,
@@ -100,3 +101,51 @@ def test_suggestion_text_mentions_phase_and_joint():
     text = suggestion_text("left_elbow", "backswing", z=2.0)
     assert "left elbow" in text
     assert "backswing" in text.lower()
+
+
+def make_covariance(mean_by_joint, variance=0.25):
+    """A *diagonal* (no cross-joint coupling) covariance for every phase --
+    with no coupling, score_clip_correlated's conditional z-score reduces to
+    exactly the same value as score_clip's independent z-score, so these
+    tests can reuse the same CLOSE_MEANS/deviation reasoning as the
+    score_clip tests above."""
+    mean_vec = [mean_by_joint[j] for j in JOINT_ORDER]
+    cov = np.diag([variance] * len(JOINT_ORDER)).tolist()
+    entry = {"joint_order": JOINT_ORDER, "mean": mean_vec, "cov": cov, "n": 50}
+    return {"strokeX": {phase: entry for phase in PHASES}}
+
+
+def test_score_clip_correlated_flags_large_deviation():
+    kpts = make_straight_arm_clip()
+    means = dict(CLOSE_MEANS, left_elbow=0.5)  # far from the clip's actual pi
+    covariance = make_covariance(means, variance=0.01)  # std=0.1
+    result = score_clip_correlated(kpts, "strokeX", covariance)
+    left_elbow_rows = [row for row in result["table"] if row["joint"] == "left_elbow"]
+    assert len(left_elbow_rows) == len(PHASES)
+    assert all(row["flagged"] for row in left_elbow_rows)
+    assert any("left elbow" in s for s in result["suggestions"])
+
+
+def test_score_clip_correlated_does_not_flag_close_match():
+    kpts = make_straight_arm_clip()
+    covariance = make_covariance(CLOSE_MEANS, variance=0.25)  # std=0.5
+    result = score_clip_correlated(kpts, "strokeX", covariance)
+    assert all(not row["flagged"] for row in result["table"])
+    assert result["suggestions"] == []
+
+
+def test_score_clip_correlated_output_shape_matches_independent_version():
+    kpts = make_straight_arm_clip()
+    covariance = make_covariance(CLOSE_MEANS, variance=0.25)
+    result = score_clip_correlated(kpts, "strokeX", covariance)
+    assert len(result["table"]) == len(PHASES) * len(JOINT_ORDER)  # still 15 rows
+
+
+def test_score_clip_correlated_marks_missing_covariance_as_insufficient_data():
+    kpts = make_straight_arm_clip()
+    covariance = {"strokeX": {}}  # no phase has a covariance entry at all
+    result = score_clip_correlated(kpts, "strokeX", covariance)
+    assert len(result["table"]) == len(PHASES) * len(JOINT_ORDER)
+    assert all(row["z"] is None for row in result["table"])
+    assert all(row["note"] == "insufficient template data" for row in result["table"])
+    assert result["overall_score"] == 50.0
