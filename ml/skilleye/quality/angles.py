@@ -51,6 +51,34 @@ def trunk_rotation_series(kpts):
     return np.arccos(cos_theta)
 
 
+def signed_shoulder_pelvis_twist_series(kpts):
+    """Signed angle (radians) from the hip line (L_HIP->R_HIP) to the
+    shoulder line (L_SHOULDER->R_SHOULDER), per frame. Unlike
+    trunk_rotation_series above (arccos -> unsigned [0,pi]), this preserves
+    rotation direction -- needed for quality/skill_rules.py's shoulder-pelvis
+    twist-reversal rule (Katsumi et al. 2026), which depends on the sign
+    flipping between two phases, not just the magnitude. kpts: (T,17,2);
+    T=0 input returns a (0,) array."""
+    if kpts.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float32)
+    hip_vec = kpts[:, R_HIP] - kpts[:, L_HIP]
+    shoulder_vec = kpts[:, R_SHOULDER] - kpts[:, L_SHOULDER]
+    cross_z = hip_vec[:, 0] * shoulder_vec[:, 1] - hip_vec[:, 1] * shoulder_vec[:, 0]
+    dot = (hip_vec * shoulder_vec).sum(axis=-1)
+    return np.arctan2(cross_z, dot)
+
+
+def signed_pelvic_rotation_series(kpts):
+    """Signed angle (radians) of the hip line (L_HIP->R_HIP) relative to
+    horizontal, per frame -- an image-plane proxy for pelvis rotation (a
+    single 2D camera can't measure true 3D pelvis orientation). kpts:
+    (T,17,2); T=0 input returns a (0,) array."""
+    if kpts.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float32)
+    hip_vec = kpts[:, R_HIP] - kpts[:, L_HIP]
+    return np.arctan2(hip_vec[:, 1], hip_vec[:, 0])
+
+
 def compute_all_angles(kpts):
     """kpts: (T, 17, 2), T may be 0. Returns {joint_name: (T,) array} for
     every entry in JOINT_DEFINITIONS plus "trunk_rotation"."""
