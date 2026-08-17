@@ -15,12 +15,16 @@ import matplotlib.pyplot as plt
 
 from stroke_dataset import load_records, STROKE_CLASSES, resample_time, add_velocity
 from stgcn_model import STGCN, COCO17_EDGES
-from quality.score import score_clip
+from quality.score import score_clip, score_clip_correlated
+from quality.skill_rules import evaluate_backhand_volley_skill_rules
 from quality.llm_explainer import generate_explanation, LLMExplanationError
 
-SKELETONS_DIR = "E:/SkillEye/skeletons"
-TEMPLATES_PATH = "E:/SkillEye/ml/results/quality_templates/templates.json"
-STROKE_MODEL_PATH = "E:/SkillEye/ml/results/stroke_classifier_v2/best_model.pt"
+# Relative to this file, not a hardcoded drive letter, so the demo runs on
+# whatever machine/drive the repo happens to be cloned to.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SKELETONS_DIR = REPO_ROOT / "skeletons"
+TEMPLATES_PATH = REPO_ROOT / "ml" / "results" / "quality_templates" / "templates.json"
+STROKE_MODEL_PATH = REPO_ROOT / "ml" / "results" / "stroke_classifier_v2" / "best_model.pt"
 
 
 @st.cache_resource
@@ -35,12 +39,16 @@ def load_stroke_model():
 def load_templates():
     with open(TEMPLATES_PATH) as f:
         data = json.load(f)
-    return data["templates"], set(data["val_subjects"])
+    # covariance (Module A) is additive to the original templates.json shape --
+    # absent on an older templates.json that predates build_expert_templates.py's
+    # compute_covariance_templates(), so the correlated-scoring toggle degrades
+    # gracefully (see main()) rather than KeyErroring.
+    return data["templates"], data.get("covariance", {}), set(data["val_subjects"])
 
 
 @st.cache_data
 def load_demo_records():
-    _, val_subjects = load_templates()
+    _, _, val_subjects = load_templates()
     records, _ = load_records(SKELETONS_DIR)
     return [r for r in records if r["subject_id"] in val_subjects]
 
@@ -78,11 +86,17 @@ def main():
     st.caption("Sample clips are held-out validation subjects only -- never used to "
                "build the expert templates being compared against.")
 
-    templates, _ = load_templates()
+    templates, covariance, _ = load_templates()
     records = load_demo_records()
 
     strokes_available = sorted({r["stroke"] for r in records})
     stroke_choice = st.sidebar.selectbox("Stroke category", strokes_available)
+
+    scoring_mode = st.sidebar.radio(
+        "Scoring mode", ["Independent (v1)", "Correlated (Module A)"],
+        help="Independent: each joint z-scored against its own template value alone. "
+             "Correlated: each joint z-scored against its expected value given what the "
+             "other joints are doing in the same phase (README §2.8).")
 
     clips_in_stroke = [r for r in records if r["stroke"] == stroke_choice]
     clip_labels = [
@@ -106,7 +120,18 @@ def main():
         st.caption(f"True label (for reference): {record['stroke']}, {record['skill_level']}")
 
     with col2:
-        result = score_clip(kpts, pred_stroke, templates)
+        if scoring_mode == "Correlated (Module A)":
+            if pred_stroke in covariance and covariance[pred_stroke]:
+                result = score_clip_correlated(kpts, pred_stroke, covariance)
+            else:
+                st.warning(
+                    f"No covariance data for '{pred_stroke}' in this templates.json "
+                    "(rebuild with build_expert_templates.py) -- falling back to "
+                    "independent scoring for this clip.")
+                result = score_clip(kpts, pred_stroke, templates)
+        else:
+            result = score_clip(kpts, pred_stroke, templates)
+
         st.subheader("Quality score")
         st.metric("Overall", f"{result['overall_score']:.0f} / 100")
 
@@ -128,6 +153,18 @@ def main():
                 st.write(f"- {s}")
         else:
             st.write("No significant deviations flagged against the expert template.")
+
+        if pred_stroke == "backhand_volley":
+            st.subheader("Skill-level checks (Module B)")
+            st.caption("Rules from Katsumi et al. (2026), comparing skilled vs. "
+                       "less-skilled backhand volleys directly -- separate from the "
+                       "expert-only z-score above (README §2.9).")
+            skill_flags = evaluate_backhand_volley_skill_rules(kpts)["flags"]
+            if skill_flags:
+                for flag in skill_flags:
+                    st.write(f"- {flag['note']}")
+            else:
+                st.write("No skill-level pattern flagged for this clip.")
 
         if st.button("Generate AI explanation"):
             try:
