@@ -19,6 +19,10 @@ beginner-vs-expert motion-quality proxy classifier (**82.4% ± 3.8%**). Both are
 results on held-out subjects, not projected targets. A rule-based v1 of that quality-score
 system — phase detection, per-joint deviation from expert-clip templates, and generated
 correction suggestions — is implemented and demonstrated through an accompanying Streamlit UI.
+Two later additions (Sections 2.8–2.10) build on this: a correlated version of the scorer that
+checks each joint against the others rather than in isolation, two rules that check for specific
+mistakes published biomechanics research links to lower skill, and a racket-mounted sensor that
+has moved from a finalized PCB design to a built, tested board streaming real motion data.
 Section 4 discusses what these results do and do not establish, and Section 5 lays out the
 remaining work toward the full quality-score system.
 
@@ -240,9 +244,13 @@ is used to find the contact frame (peak wrist speed, a standard swing-analysis h
 splitting the clip into three phases: backswing, a short window around contact, and
 follow-through.
 
-**Joint angles** (`ml/skilleye/quality/angles.py`): per phase, four flexion angles
-(left/right elbow, left/right knee) plus a trunk-rotation proxy (shoulder-line vs.
-hip-line angle) are averaged into one scalar per (phase, joint).
+**Joint angles** (`ml/skilleye/quality/angles.py`): per phase, six flexion angles
+(left/right shoulder, left/right elbow, left/right knee) plus a trunk-rotation proxy
+(shoulder-line vs. hip-line angle) are averaged into one scalar per (phase, joint) — 7
+joints × 3 phases = 21 values per clip. Shoulder angle (angle at the shoulder between hip
+and elbow) was added in a later pass (Section 2.8) so Elliott (2006)'s "shoulder" kinetic-chain
+contributor has a tracked joint to correspond to; it is a 2D flexion/abduction proxy, not a
+reconstruction of true 3D shoulder rotation, which a single camera cannot measure.
 
 **Expert templates** (`ml/skilleye/build_expert_templates.py`, run once offline): for each
 stroke class, the mean and standard deviation of each (phase, joint) scalar across that
@@ -311,10 +319,17 @@ pick up (both are concept diagrams — no physical unit has been mounted yet):
 
 ![Sensor mechanism concept](docs/schematics/sensor_mechanism_concept.svg)
 
-This is a finalized, PCB-laid-out design, not yet a built board: no physical prototype has
-been assembled or fabricated, no firmware has been written, and no real sensor data has been
-collected. The modeling work below is written accordingly — it does not depend on or wait
-for the physical board, and does not claim to have used it.
+**Update — the board is now built and streaming real data.** What follows was true when the
+design above was finalized, but is no longer the current state: firmware has been written
+(`hardware/firmware/firmware.ino` — the XIAO ESP32-C6 + GY-521 hosts its own WiFi network and
+streams accelerometer/gyroscope readings at 200 Hz the moment a laptop connects), a computer-side
+client exists (`hardware/client/imu_client.py`), and real recordings exist for
+backhand/forehand/serve (with and without ball contact) plus one volley take. A live-monitoring
+dashboard (`hardware/client/live_dashboard.py`, Streamlit) was built and tested against the
+physical device on real WiFi, confirming the full sensor → firmware → recording pipeline works
+end to end — see Section 2.10. The fusion model in this section still trains on synthetic data
+only (below) — swapping in real recordings for that specific model is the one piece of this
+section still pending, not the whole hardware effort.
 
 **Software architecture** (`ml/skilleye/imu_fusion.py`): `STGCN` is refactored to expose
 its pooled pre-classifier features via `extract_features()` (`ml/skilleye/stgcn_model.py`,
@@ -341,6 +356,104 @@ above (GY-521/MPU6050 on a Seeed XIAO) matches that description closely, and the
 method (sampling rate, sync approach) applies unchanged either way. Swapping
 `synthetic_imu_from_skeleton()`'s call site for a real-data loader is the only code change
 needed once the board above is built and recordings exist.
+
+### 2.8 Correlated Quality Scoring (Module A)
+
+*The next three subsections describe work added after the rest of this document, and are
+written in plainer language on purpose so they're easy to follow even without a machine
+learning background.*
+
+The scoring system described in Section 2.6 checks every joint **on its own**. It looks at
+one joint's angle, compares it only to that joint's own usual value, and flags it if it's
+too different. This misses something real: sometimes a joint looks "off" only because
+another joint pulled it along. For example, if the trunk rotates a lot during a swing, the
+elbow angle naturally shifts too — that isn't a mistake, it's just how a real swing moves.
+The old system couldn't tell the difference between "this joint is genuinely wrong" and
+"this joint moved because the rest of the body moved."
+
+Module A fixes this by scoring each joint **together with the others**, not alone. Instead
+of asking "is this elbow angle unusual by itself?", it asks "is this elbow angle unusual,
+*given what the rest of the body is doing right now*?" This uses a statistics tool called a
+covariance matrix — a table that captures how pairs of joints move together across real
+expert swings — plus a formula that predicts one joint's expected value from the others'
+current values. The gap between the real value and that prediction is the new score.
+
+This covariance matrix is built separately for each stroke type (a serve and a volley move
+very differently, so they shouldn't share one set of rules), using the same expert-labeled
+clips already used to build the original templates — 1,584 training clips across the full
+1,980-clip dataset. For strokes with fewer expert examples (volleys and smash, ~55-57
+clips), the matrix is nudged toward a small, clearly-labeled "prior" — a rough guess, based
+on Elliott (2006)'s description of how the shoulder, elbow, and trunk work together during
+a swing, used only to keep the statistics stable when there isn't much data, not presented
+as a precise number from that paper.
+
+The output format is unchanged: still one score per (phase, joint), the same 21 values as
+before, and the existing correction messages still work — only *how* each score is
+calculated is different. Code: `ml/skilleye/quality/correlation.py`,
+`score_clip_correlated()` in `ml/skilleye/quality/score.py`. Design:
+`docs/superpowers/specs/2026-08-14-correlated-zscore-module-a-design.md`. Validation
+results: Section 3.4.
+
+### 2.9 Skill-Level-Specific Rules (Module B)
+
+Module A still only compares a swing to what *experts* typically look like. It has no idea
+what beginners specifically tend to do wrong — it can only say "this is unusual," not "this
+is the mistake beginners commonly make." Module B closes that gap with a small number of
+hand-written rules, each based on one specific finding from a published biomechanics paper
+that directly compared skilled and less-skilled players.
+
+Two rules were built, both for the **backhand volley** specifically (the one stroke a
+suitable comparison study exists for):
+
+- **Shoulder-pelvis twist reversal.** Katsumi et al. (2026) found that skilled players keep
+  their shoulders twisted the same way relative to their hips throughout the swing, while
+  less-skilled players' twist direction *flips* between the backswing and the moment of
+  contact — as if the twist needed for a good hit was created too late. This project's
+  existing angle-tracking code could only measure the *size* of this twist, not its
+  *direction*, so two new "signed" angle functions were added
+  (`signed_shoulder_pelvis_twist_series`, `signed_pelvic_rotation_series` in
+  `ml/skilleye/quality/angles.py`) specifically so a direction reversal can be detected at
+  all.
+- **Excessive pelvic rotation.** The same paper found less-skilled players rotate their
+  hips further than skilled players, at both the backswing and contact. The rule flags a
+  swing when its hip rotation passes the midpoint between the two groups' typical values.
+
+A third rule — using Aydin & Aydemir (2026)'s finding that lower, more controlled racket
+acceleration corresponds to *higher* skill in a volley (elite players use a "controlled,
+abbreviated swing" rather than muscling the shot) — was implemented as a standalone check,
+`check_volley_swing_effort()`, but is not yet wired into the main pipeline: it needs a real
+racket-acceleration reading from an actual ball-contact volley swing, and no such recording
+exists yet (Section 2.10 explains what does exist). A fourth candidate rule, for
+forehand/backhand/serve, was investigated (a paper comparing high-performance and
+intermediate forehand drives) but turned out to need motion-capture and muscle-sensor
+(EMG) hardware this project doesn't have, so it was not attempted.
+
+Every rule here produces its own separate flag, kept apart from Module A's 21 scores, since
+that's a structurally different kind of check (comparing to *both* skill groups, not just
+to experts). Code: `ml/skilleye/quality/skill_rules.py`. Design:
+`docs/superpowers/specs/2026-08-14-skill-level-rules-module-b-design.md`.
+
+### 2.10 Live IMU Monitoring Dashboard
+
+Separately from the modeling work above, a small tool was built to watch the racket
+sensor's data live, on a computer screen, while the racket is actually being swung — useful
+both as a quick "is the hardware actually working right now" check and as something to show
+during a demo. It reuses the existing recording client's networking code, runs the WiFi
+connection on a background thread, and redraws two live charts (accelerometer and
+gyroscope) plus simple stats (samples per second, dropped samples, peak force) a few times
+a second. It is intentionally kept separate from the main quality-scoring demo, so a problem
+here can never affect the validated, already-working pipeline. Code:
+`hardware/client/live_buffer.py` (the data-buffering logic, unit-tested), `hardware/client/live_dashboard.py`
+(the Streamlit page — run with `streamlit run live_dashboard.py` from `hardware/client/`).
+
+This tool was tested against the real, physical racket sensor: connected over its WiFi
+network, confirmed streaming at the firmware's target 200 Hz, and used to record a genuine
+58-second volley take (11,659 samples, zero dropped) — the project's first volley recording
+(previous recordings covered backhand/forehand/serve only). That specific take was swung
+without a ball, so its numbers are not yet comparable to Aydin & Aydemir (2026)'s
+ball-contact-based reference (Section 2.9) — but it did prove the complete chain, from
+physical sensor through to a rule-checking function, runs correctly end to end. A recording
+made with a real ball is the next step before that specific rule's output can be trusted.
 
 ## 3. Results
 
@@ -408,18 +521,20 @@ stroke class, against that stroke's own expert template.
 
 | stroke | expert mean | beginner mean | experts higher? |
 |---|---:|---:|---|
-| backhand | 89.8 | 86.2 | yes |
-| backhand_volley | 90.9 | 84.6 | yes |
-| forehand | 90.1 | 86.6 | yes |
-| forehand_volley | 88.9 | 77.5 | yes |
-| serve | 87.6 | 87.0 | yes |
-| smash | 87.9 | 87.1 | yes |
+| backhand | 88.9 | 86.5 | yes |
+| backhand_volley | 89.5 | 85.8 | yes |
+| forehand | 88.5 | 86.7 | yes |
+| forehand_volley | 87.2 | 79.8 | yes |
+| serve | 87.3 | 87.0 | yes |
+| smash | 87.9 | 87.9 | **no** |
 
-Experts scored higher on every stroke with held-out data (`ml/skilleye/smoke_check_quality_scoring.py`).
-This is a sanity check, not a validation -- it confirms the scoring system's direction
-is sane on the same subject-level proxy label used in Section 3.2, not that its absolute
-scores or flagged joints are correct at the level of a real coach's judgment. That
-remains gated on Path A/B ground truth (Section 5).
+(Table above uses the current 7-joint angle set, Section 2.8 — regenerated after the
+shoulder joints were added; see Section 3.4 for what changed and the honest discussion of
+the smash row.) Experts scored higher on 5 of 6 strokes with held-out data
+(`ml/skilleye/smoke_check_quality_scoring.py`). This is a sanity check, not a validation --
+it confirms the scoring system's direction is sane on the same subject-level proxy label
+used in Section 3.2, not that its absolute scores or flagged joints are correct at the
+level of a real coach's judgment. That remains gated on Path A/B ground truth (Section 5).
 
 The aggregate numbers above are a directional average -- the actual per-clip output looks
 like this (two real held-out `forehand_volley` clips, the largest expert/beginner gap in
@@ -431,6 +546,44 @@ The beginner clip's flagged joints are concrete and actionable (left elbow over-
 right elbow under-extended, left knee not bent enough at contact) rather than an opaque
 number -- this is what "rule-based correction suggestions" (proposal Section 4.7) actually
 produces today, not a mockup of what it might eventually say.
+
+### 3.4 Module A/B Validation
+
+This section reports what happened when Module A (Section 2.8) and Module B (Section 2.9)
+were actually run and checked, including a result that did **not** come out clean —
+included here in full rather than left out, in keeping with how every other result in this
+document is reported.
+
+**Module A, same smoke check as Section 3.3, but with the new correlated scoring:**
+
+| stroke | expert mean | beginner mean | experts higher? |
+|---|---:|---:|---|
+| backhand | 89.3 | 86.0 | yes |
+| backhand_volley | 88.6 | 83.9 | yes |
+| forehand | 86.2 | 83.2 | yes |
+| forehand_volley | 87.1 | 77.0 | yes |
+| serve | 87.6 | 85.5 | yes |
+| smash | 86.7 | 87.0 | **no** |
+
+(`ml/skilleye/smoke_check_correlated_quality_scoring.py`.) Same result as the independent
+scorer above: 5 of 6 strokes pass, smash does not. Because *both* the old (independent) and
+new (correlated) scorers fail on smash once the shoulder joints are included, this is not a
+bug introduced by Module A specifically -- it appears to be an effect of adding the
+shoulder angle, on a stroke class that only has 55-57 expert training clips (one of the
+thinnest classes). No attempt was made to adjust constants until the number looked better;
+that would be fitting the system to a desired answer rather than measuring it honestly. This
+is flagged as a real, open finding for further investigation (candidates: check whether
+beginners' shoulder angle happens to be unusually consistent for smash specifically, or
+whether 55-57 clips is simply too few for a stable 7-dimensional covariance estimate),
+not something papered over.
+
+**Module B, real hardware:** the racket sensor was connected live and used to record a real
+58-second volley take (Section 2.10). `check_volley_swing_effort()` was run against 28
+segmented swings from that recording: 18 fell on the lower-force side, 10 on the
+higher-force side of the reference midpoint. Because that recording had no ball contact,
+this result is a pipeline check (the full sensor-to-rule chain works), **not** a skill
+assessment -- see Section 2.10 for why a ball-less swing isn't comparable to the paper's
+reference values.
 
 ## 4. Discussion
 
@@ -481,6 +634,10 @@ normalized skeleton representation, (2) stroke type is classifiable from that re
 a practical standard (81.7% ± 4.9%, 6-way), and (3) motion quality signal — not just stroke
 identity — is present and learnable in the same representation (82.4% ± 3.8% on a weak proxy
 label), which supports the project's central premise ahead of collecting stronger ground truth.
+Sections 2.8-2.10 and 3.4 add to this: a correlated (not-independent) version of the quality
+scorer, two literature-grounded rules that specifically catch beginner mistakes, and a
+racket-mounted sensor that is now confirmed working on real hardware, not just designed on
+paper.
 
 Remaining work, in priority order:
 
@@ -489,32 +646,46 @@ Remaining work, in priority order:
 2. **Path B: coach-rated ground truth** — recruit coaches to blind-rate real swings, to be
    correlated against model output (target r > 0.7). Longest lead time item; should run in
    parallel with, not after, further technical work.
-3. **Own side-view, higher-frame-rate recordings, plus a physical sensor board** —
-   required for the joint-angle-based error-detection rules in Section 4.7, expected to
-   resolve the volley/groundstroke confusion identified in Section 4.1, and needed to move
-   Section 2.7's sensor-fusion prototype from synthetic to real data. The finalized rev2.1
-   design (GY-521/MPU6050 + Seeed XIAO) exists in `hardware/skilleye_2.0/`, PCB-laid-out and
-   apparently prepared for fabrication (a PCBWay asset was added alongside it) but not yet
-   built; assembly, firmware, and the collection protocol (sampling rate, synchronization
-   method) are scoped in `docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md`.
-   Once real logs
-   exist, retraining and cross-validating `FusedBeginnerExpertModel` on them — following
-   the same 5-fold rigor as Section 3.2 — is the follow-up this prototype sets up for.
-4. **Path A: synthetic perturbation** of known-good motion (known joint-angle/timing offsets
+3. **A real, ball-contact volley recording** — the sensor board is built and streaming
+   correctly (Section 2.10), but the one volley take recorded so far had no ball contact, so
+   `check_volley_swing_effort()` (Section 2.9) has not yet been checked against a comparable
+   real result. This is now the only piece standing between that rule and a trustworthy
+   real-data validation — cheap and fast relative to everything else on this list.
+4. **Investigate the smash smoke-check failure** (Section 3.4) — both the independent and
+   correlated scorers rate expert smash clips no higher than beginner ones once the shoulder
+   joints are included, unlike every other stroke. Flagged honestly rather than silently
+   adjusted away; needs a dedicated look (is it the shoulder joints specifically, or the
+   smash class's small expert sample of 55-57 clips?) before smash's quality score can be
+   trusted in a demo.
+5. **Own side-view, higher-frame-rate recordings** — required for the joint-angle-based
+   error-detection rules in Section 4.7, and expected to resolve the volley/groundstroke
+   confusion identified in Section 4.1. The sensor board itself (item 3) is no longer the
+   blocker here; this is specifically about camera footage.
+6. **Camera+IMU sync recording, then retrain the fusion model on real data** — the sensor
+   board streams real accelerometer/gyroscope data today (Section 2.10), but
+   `FusedBeginnerExpertModel` (Section 2.7) still trains only on a synthetic signal derived
+   from the skeleton. A synchronized video+IMU recording session (protocol already written,
+   `docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md`) is what's needed to
+   retrain and cross-validate it on real data, following the same 5-fold rigor as Section 3.2.
+7. **Wire Module A and Module B into the demo UI** (`ml/skilleye/app.py`) — both are
+   implemented, tested, and validated on real data (Sections 2.8-2.9, 3.4) but only reachable
+   through their own scripts/functions today, not through the Streamlit demo a judge would
+   actually click through.
+8. **Path A: synthetic perturbation** of known-good motion (known joint-angle/timing offsets
    injected into skilled-athlete clips) as a complementary, coach-independent ground-truth
    source for the quality-score model.
-5. **A learned quality-score model** (proposal Section 4.7) — Section 2.6/3.3 delivers a
-   working rule-based v1 (phase detection, joint angles, expert-template comparison); once
-   ground truth from (2) and/or (4) is available, that data enables replacing or
-   augmenting the rule-based scorer with a trained regression model, and calibrating
-   `FLAG_THRESHOLD`/`SCORE_SCALE` against real quality judgments instead of a directional
-   sanity check.
-6. **Cross-dataset validation against the Wagner tennis serve dataset** (Section 1.2) — its
-   existing serve-quality labels are an external, independently-collected signal that could
-   validate whether the quality-relevant patterns found in Section 3.2 generalize beyond THETIS
-   and beyond amateur players. This requires extending the 2D pipeline to accept its 3D pose
-   format (or projecting its 3D keypoints to 2D for direct compatibility) — not yet attempted,
-   flagged here as a concrete, scoped next step rather than folded into the results above.
+9. **A learned quality-score model** (proposal Section 4.7) — Section 2.6/3.3/3.4 delivers a
+   working rule-based v1 (phase detection, joint angles, expert-template comparison, now with
+   a correlated-scoring option and two skill-level-specific rules); once ground truth from
+   (2) and/or (8) is available, that data enables replacing or augmenting the rule-based
+   scorer with a trained regression model, and calibrating `FLAG_THRESHOLD`/`SCORE_SCALE`
+   against real quality judgments instead of a directional sanity check.
+10. **Cross-dataset validation against the Wagner tennis serve dataset** (Section 1.2) — its
+    existing serve-quality labels are an external, independently-collected signal that could
+    validate whether the quality-relevant patterns found in Section 3.2 generalize beyond THETIS
+    and beyond amateur players. This requires extending the 2D pipeline to accept its 3D pose
+    format (or projecting its 3D keypoints to 2D for direct compatibility) — not yet attempted,
+    flagged here as a concrete, scoped next step rather than folded into the results above.
 
 ## 6. Reproducibility
 
@@ -522,7 +693,8 @@ Remaining work, in priority order:
 ml/skilleye/                       pipeline and modeling code
   skeleton_pipeline.py             RTMPose output -> tracked subject -> normalized skeleton (§2.2)
   batch_extract.py                 CLI batch runner over a THETIS-shaped folder tree (resumable)
-  stroke_dataset.py                category merging (Table 1), subject-disjoint/k-fold splitting
+  skeleton_records.py              skeleton-JSON loading + subject-disjoint/k-fold splitting (torch-free)
+  stroke_dataset.py                category merging (Table 1), torch Dataset -- re-exports skeleton_records.py
   stgcn_model.py                   ST-GCN architecture, COCO-17 skeleton graph (§2.3)
   train_stroke_classifier.py       stroke classifier, single split
   train_beginner_expert_stgcn.py   beginner/expert ST-GCN, single split (§2.4)
@@ -530,8 +702,11 @@ ml/skilleye/                       pipeline and modeling code
   cross_validate.py                5-fold cross-validation for both classifiers (§2.5)
   generate_figures.py              renders ml/results/figures/*.png from the metrics JSONs
   quality/                         phase detection, joint angles, template scoring (§2.6)
-  build_expert_templates.py        builds ml/results/quality_templates/templates.json (§2.6)
-  smoke_check_quality_scoring.py   experts-score-higher-than-beginners sanity check (§3.3)
+  quality/correlation.py           conditional (correlated) z-score, Module A (§2.8)
+  quality/skill_rules.py           skill-level-specific rules, Module B (§2.9)
+  build_expert_templates.py        builds ml/results/quality_templates/templates.json (§2.6, §2.8)
+  smoke_check_quality_scoring.py   experts-score-higher-than-beginners sanity check, independent scorer (§3.3)
+  smoke_check_correlated_quality_scoring.py   same check, correlated scorer (§3.4)
   generate_qualitative_figures.py  renders the stroke-gallery and quality-comparison examples (§2.6/3.3)
   app.py                           Streamlit demo UI (§2.6) -- run: streamlit run app.py
   quality/llm_explainer.py         optional LLM-generated correction paragraphs (§2.6, needs NVIDIA_API_KEY)
@@ -543,7 +718,7 @@ ml/skilleye/                       pipeline and modeling code
 ml/results/
   RESULTS_SUMMARY.md                supplementary detail beyond what's inlined above
   figures/                          PNGs embedded above; regenerate with generate_figures.py / generate_qualitative_figures.py
-  quality_templates/                templates.json: per-stroke expert (phase, joint) statistics (§2.6)
+  quality_templates/                templates.json: per-stroke expert (phase, joint) statistics + covariance (§2.6, §2.8)
   imu_fusion_prototype/             prototype-only metrics (synthetic IMU data, §2.7) -- not a benchmark
   cross_validation/                 §3 headline numbers: per-fold + aggregated metrics
   beginner_expert_check.json        v1 (§2.4): hand-crafted features + logistic regression
@@ -552,13 +727,26 @@ ml/results/
   stroke_classifier_v2/             6-class + augmentation, single split, trained weights + metrics
 
 hardware/skilleye_2.0/             KiCad rev2.1 PCB project (§2.7, finalized): GY-521/MPU6050 +
-                                    Seeed XIAO + TP4056 charging -- PCB-laid-out, not yet built
+                                    Seeed XIAO + TP4056 charging -- built and streaming (§2.10)
 hardware/skilleye_1.0/             earlier rev1.0/1.1 custom-board iteration, kept for reference
+hardware/gerbers/                  fabrication-ready gerber files for the rev2.1 board
+hardware/firmware/firmware.ino     rev2.x streaming firmware, XIAO ESP32-C6 + GY-521 (§2.10)
+hardware/client/imu_client.py      computer-side recording/monitoring client (§2.10)
+hardware/client/live_buffer.py     rolling-window buffer for the live dashboard, unit-tested (§2.10)
+hardware/client/live_dashboard.py  live IMU monitoring Streamlit page (§2.10)
+hardware/client/*.csv              real recordings: backhand/forehand/serve (with and without
+                                    ball contact) and one ball-less volley take (§2.10)
 docs/schematics/2.0/rev2.1/        rendered schematic PDF/SVG for the current (rev2.1) board
 docs/schematics/1.0/               rendered schematics for the earlier rev1.0/1.1 iteration
+docs/layouts/rev2.0/               fabrication layout PDFs (front/back panel)
 docs/schematics/system_architecture.svg          full pipeline diagram (§2.0), hand-authored
 docs/schematics/sensor_*_concept.svg             placement/mechanism diagrams (§2.7) --
-                                    illustrative, not photos; no physical unit exists yet
+                                    illustrative, not photos, predate the built board
+docs/superpowers/specs/2026-08-14-correlated-zscore-module-a-design.md    Module A design (§2.8)
+docs/superpowers/specs/2026-08-14-skill-level-rules-module-b-design.md    Module B design (§2.9)
+docs/superpowers/specs/2026-08-14-live-imu-dashboard-design.md            live dashboard design (§2.10)
+skilleye-demo/                     bundled standalone demo (app.py + trained weights), same code as ml/skilleye/
+skilleye-website/                  results-showcase webpage
 ```
 
 Dataset (not included in this repository — see `ml/skilleye/README.md` for how to fetch it):
@@ -574,3 +762,14 @@ Dataset (not included in this repository — see `ml/skilleye/README.md` for how
   *arXiv:2303.07399*.
 - Wagner, J. (2024). Tennis Serve Analysis Dataset: 3D Pose Sequences from 2024 US Open Broadcast
   Video. https://github.com/jasnwag/tennis_serve_dataset (CC BY 4.0).
+- Elliott, B. (2006). Biomechanics and tennis. *British Journal of Sports Medicine*.
+- Knudson, D., & Elliott, B. (2004). Biomechanics of Tennis Strokes.
+- Katsumi, K., Koda, H., & Kida, N. (2026). Analysis of Upper-Limb Movement Characteristics in
+  Tennis Volleys Based on Skill-Level Differences: Kinematic Features of the Backhand Versus
+  Forehand Volley. *Journal of Functional Morphology and Kinesiology*, 11(2), 203.
+- Aydin, E.H., & Aydemir, O. (2026). A Robust Deep Learning Framework for Skill Level
+  Discrimination in Tennis Strokes Using Bilateral IMU Measurements. *Sensors*, 26(10), 3273.
+
+The Katsumi and Aydin & Aydemir figures cited in Sections 2.9 and 3.4 were extracted via an
+automated read of each paper's published page rather than a manual PDF read — worth a
+spot-check against the source before citing in a formal submission.
