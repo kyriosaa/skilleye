@@ -90,7 +90,7 @@ def compute_covariance_templates(records, stroke_classes):
 
 
 def main():
-    from stroke_dataset import load_records, subject_disjoint_split, STROKE_CLASSES
+    from skeleton_records import load_records, subject_disjoint_split, STROKE_CLASSES
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--skeletons", required=True)

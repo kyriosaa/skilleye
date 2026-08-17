@@ -63,9 +63,11 @@ def test_conditional_zscore_falls_back_to_marginal_when_submatrix_singular():
     assert z[0] == pytest.approx((7.0 - 3.0) / np.sqrt(4.0))
 
 
-def test_shrinkage_target_has_prior_coupling_between_elbows_and_trunk_rotation():
+def test_shrinkage_target_has_prior_coupling_between_upper_limb_joints_and_trunk_rotation():
     target = shrinkage_target()
     trunk = JOINT_ORDER.index("trunk_rotation")
+    left_shoulder = JOINT_ORDER.index("left_shoulder")
+    right_shoulder = JOINT_ORDER.index("right_shoulder")
     left_elbow = JOINT_ORDER.index("left_elbow")
     right_elbow = JOINT_ORDER.index("right_elbow")
     left_knee = JOINT_ORDER.index("left_knee")
@@ -73,12 +75,19 @@ def test_shrinkage_target_has_prior_coupling_between_elbows_and_trunk_rotation()
     assert target.shape == (len(JOINT_ORDER), len(JOINT_ORDER))
     assert target == pytest.approx(target.T)  # a correlation matrix is symmetric
     assert np.diag(target) == pytest.approx(np.ones(len(JOINT_ORDER)))
-    # The one coupling Elliott (2006) maps onto joints this project tracks.
+    # The couplings Elliott (2006) maps onto joints this project tracks --
+    # shoulder and elbow both feed into trunk rotation's kinetic chain.
+    assert target[left_shoulder, trunk] > 0
+    assert target[right_shoulder, trunk] > 0
     assert target[left_elbow, trunk] > 0
     assert target[right_elbow, trunk] > 0
+    # Adjacent same-arm segments (shoulder-elbow) are also coupled.
+    assert target[left_shoulder, left_elbow] > 0
+    assert target[right_shoulder, right_elbow] > 0
     # Knees are a separate force-generation subsystem -- no prior coupling.
     assert target[left_elbow, left_knee] == 0
     assert target[left_knee, trunk] == 0
+    assert target[left_shoulder, left_knee] == 0
 
 
 def test_shrink_correlation_returns_original_covariance_at_zero_intensity():

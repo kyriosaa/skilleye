@@ -52,6 +52,7 @@ def make_template(mean_by_joint, std=0.5):
 
 
 CLOSE_MEANS = {
+    "left_shoulder": 0.0, "right_shoulder": 0.0,
     "left_elbow": np.pi, "right_elbow": np.pi / 2,
     "trunk_rotation": 0.0, "left_knee": np.pi, "right_knee": np.pi,
 }
@@ -80,7 +81,7 @@ def test_score_clip_marks_missing_template_entries_as_insufficient_data():
     kpts = make_straight_arm_clip()
     templates = {"strokeX": {phase: {} for phase in PHASES}}  # no joints in template at all
     result = score_clip(kpts, "strokeX", templates)
-    assert len(result["table"]) == len(PHASES) * 5  # 5 joints x 3 phases, all present
+    assert len(result["table"]) == len(PHASES) * len(JOINT_ORDER)  # all joints x all phases
     assert all(row["z"] is None for row in result["table"])
     assert all(row["note"] == "insufficient template data" for row in result["table"])
     assert all(not row["flagged"] for row in result["table"])
@@ -101,6 +102,15 @@ def test_suggestion_text_mentions_phase_and_joint():
     text = suggestion_text("left_elbow", "backswing", z=2.0)
     assert "left elbow" in text
     assert "backswing" in text.lower()
+
+
+def test_suggestion_text_covers_the_new_shoulder_joints():
+    # left_shoulder/right_shoulder were added to JOINT_ORDER (Elliott shoulder
+    # contribution) -- suggestion_text must not KeyError for them.
+    left = suggestion_text("left_shoulder", "backswing", z=2.0)
+    assert "left shoulder" in left
+    right = suggestion_text("right_shoulder", "contact", z=-2.0)
+    assert "right shoulder" in right
 
 
 def make_covariance(mean_by_joint, variance=0.25):
@@ -138,7 +148,7 @@ def test_score_clip_correlated_output_shape_matches_independent_version():
     kpts = make_straight_arm_clip()
     covariance = make_covariance(CLOSE_MEANS, variance=0.25)
     result = score_clip_correlated(kpts, "strokeX", covariance)
-    assert len(result["table"]) == len(PHASES) * len(JOINT_ORDER)  # still 15 rows
+    assert len(result["table"]) == len(PHASES) * len(JOINT_ORDER)
 
 
 def test_score_clip_correlated_marks_missing_covariance_as_insufficient_data():

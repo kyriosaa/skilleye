@@ -1,9 +1,20 @@
 """
 Interpretable per-frame joint angles used as the quality-scoring feature set:
-elbow flexion (L/R), knee flexion (L/R), and a trunk-rotation proxy (angle
-between the shoulder line and the hip line). Extending this set later is a
-one-entry addition to JOINT_DEFINITIONS (or a new series function, for
-trunk_rotation-style pairs) -- nothing else needs to change.
+shoulder flexion (L/R), elbow flexion (L/R), knee flexion (L/R), and a
+trunk-rotation proxy (angle between the shoulder line and the hip line).
+Extending this set later is a one-entry addition to JOINT_DEFINITIONS (or a
+new series function, for trunk_rotation-style pairs) -- nothing else needs
+to change.
+
+Note on "shoulder": Elliott (2006)'s kinetic-chain contribution figures name
+the shoulder and "upper-arm internal rotation" as separate contributors --
+internal rotation is a rotation around the humerus's long axis, which a
+single 2D camera cannot measure at all. left_shoulder/right_shoulder below is
+a 2D proxy (the angle between torso and upper arm, i.e. shoulder
+flexion/abduction in the image plane), not a literal reconstruction of
+Elliott's internal-rotation figure -- tracked so Elliott's shoulder
+contribution has *a* corresponding measured joint, not to claim exact
+biomechanical equivalence.
 """
 import numpy as np
 
@@ -14,6 +25,8 @@ from quality.keypoints import (
 
 # name -> (a, b, c): angle at joint b, formed by points a-b-c
 JOINT_DEFINITIONS = {
+    "left_shoulder": (L_HIP, L_SHOULDER, L_ELBOW),
+    "right_shoulder": (R_HIP, R_SHOULDER, R_ELBOW),
     "left_elbow": (L_SHOULDER, L_ELBOW, L_WRIST),
     "right_elbow": (R_SHOULDER, R_ELBOW, R_WRIST),
     "left_knee": (L_HIP, L_KNEE, L_ANKLE),

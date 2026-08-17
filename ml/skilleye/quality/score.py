@@ -20,6 +20,8 @@ FLAG_THRESHOLD = 1.5
 SCORE_SCALE = 15.0
 
 JOINT_DISPLAY_NAMES = {
+    "left_shoulder": "left shoulder",
+    "right_shoulder": "right shoulder",
     "left_elbow": "left elbow",
     "right_elbow": "right elbow",
     "left_knee": "left knee",
@@ -33,6 +35,14 @@ PHASE_DISPLAY_NAMES = {
 }
 # joint -> (tip when the clip's angle is smaller than the template, tip when larger)
 JOINT_TIPS = {
+    "left_shoulder": (
+        "try raising your left arm more through the shot",
+        "try keeping your left arm lower, it's raised more than typical",
+    ),
+    "right_shoulder": (
+        "try raising your right arm more through the shot",
+        "try keeping your right arm lower, it's raised more than typical",
+    ),
     "left_elbow": (
         "try extending your left arm more",
         "try relaxing your left arm, it's more extended than typical",
