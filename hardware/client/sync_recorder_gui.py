@@ -16,6 +16,7 @@ in test_sync_recorder_gui.py. The Tk window itself is not -- no display or
 camera to drive it against in this dev environment; manual QA on your
 machine, same as live_dashboard.py.
 """
+import json
 import os
 import sys
 import threading
@@ -110,6 +111,7 @@ class RecorderApp:
         self.stop_event = threading.Event()
         self.imu_stats = None
         self.imu_error = None
+        self.anchors = {}
 
         self.cap = cv2.VideoCapture(self.camera_index)
         if not self.cap.isOpened():
@@ -130,6 +132,11 @@ class RecorderApp:
 
         self.video_thread.start()
         self.imu_thread.start()
+        # Anchors both streams to this computer's wall clock at the moment
+        # each starts (same purpose as run_synced_recording's in
+        # sync_recorder.py -- a bug earlier had this GUI path never write
+        # this file at all, found from real recorded takes missing it).
+        self.anchors["video_wall_clock_start_us"] = int(time.time() * 1_000_000)
 
         self.recording = True
         self.start_button.config(state=tk.DISABLED)
@@ -140,6 +147,7 @@ class RecorderApp:
     def _imu_worker(self):
         try:
             with IMUStream(self.host, self.port, timeout=10.0) as stream:
+                self.anchors["imu_wall_clock_start_us"] = int(time.time() * 1_000_000)
                 self.imu_stats = record_imu(stream, f"{self.temp_prefix}_imu.csv", self.stop_event)
         except (ConnectionRefusedError, OSError, TimeoutError) as exc:
             self.imu_error = str(exc)
@@ -168,6 +176,9 @@ class RecorderApp:
         self.imu_thread.join(timeout=10.0)
         self.cap.release()
         self.real_writer.release()
+
+        with open(f"{self.temp_prefix}_alignment.json", "w") as f:
+            json.dump(self.anchors, f, indent=2)
 
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
