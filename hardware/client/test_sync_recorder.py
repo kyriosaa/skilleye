@@ -158,7 +158,7 @@ class TestRunSyncedRecording(unittest.TestCase):
             run_synced_recording(
                 imu_stream_factory=lambda: IMUStream("127.0.0.1", port, timeout=5.0),
                 frame_source_factory=lambda: SlowFakeFrameSource(frames),
-                writer_factory=lambda: FakeWriter(),
+                writer_factory=lambda frame_source: FakeWriter(),
                 out_prefix=out_prefix,
             )
             thread.join(timeout=5.0)
@@ -174,6 +174,47 @@ class TestRunSyncedRecording(unittest.TestCase):
         self.assertIn("video_wall_clock_start_us", alignment)
         self.assertTrue(any(line.startswith("0,") for line in imu_lines))
         self.assertEqual(len(video_rows) - 1, len(frames))  # minus the header row
+
+    def test_a_broken_writer_factory_raises_instead_of_hanging(self):
+        # Regression test for a real bug found on actual hardware: if the
+        # video side fails to set up (there, two cv2.VideoCapture handles on
+        # one camera conflicting) *before* go.set(), the IMU worker thread
+        # was left blocked on go.wait() forever, and since it wasn't a
+        # daemon thread, the whole process couldn't exit either. The test
+        # itself runs run_synced_recording on a background thread with a
+        # hard timeout, so if this regresses, the test fails cleanly
+        # instead of hanging the whole suite.
+        import tempfile, os
+        payload = "\n".join(DEVICE_HEADER + make_rows(30)) + "\n"
+        port, server_thread = serve_once(payload, chunk_size=11)
+
+        from imu_client import IMUStream
+
+        def broken_writer_factory(frame_source):
+            raise RuntimeError("simulated camera conflict")
+
+        result = {}
+
+        def run():
+            try:
+                with tempfile.TemporaryDirectory() as d:
+                    run_synced_recording(
+                        imu_stream_factory=lambda: IMUStream("127.0.0.1", port, timeout=5.0),
+                        frame_source_factory=lambda: FakeFrameSource(["a"]),
+                        writer_factory=broken_writer_factory,
+                        out_prefix=os.path.join(d, "take"),
+                    )
+            except Exception as e:
+                result["error"] = e
+
+        runner = threading.Thread(target=run, daemon=True)
+        runner.start()
+        runner.join(timeout=5.0)
+
+        self.assertFalse(runner.is_alive(), "run_synced_recording hung instead of raising")
+        self.assertIn("error", result)
+        self.assertEqual(str(result["error"]), "simulated camera conflict")
+        server_thread.join(timeout=5.0)
 
 
 if __name__ == "__main__":

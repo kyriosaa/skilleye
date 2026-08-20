@@ -95,9 +95,12 @@ def run_synced_recording(imu_stream_factory, frame_source_factory, writer_factor
     computer's wall clock at the moment it starts. Writes:
       <out_prefix>_imu.csv, <out_prefix>_video_timestamps.csv,
       <out_prefix>_alignment.json (the wall-clock anchors + metadata).
-    frame_source_factory/writer_factory are called to build the video side
-    (real callers pass cv2.VideoCapture/cv2.VideoWriter constructors; tests
-    pass fakes) -- this function itself never imports cv2."""
+    frame_source_factory is called with no arguments; writer_factory is
+    called with the opened frame source, so it can read frame dimensions
+    from that *same* handle rather than opening a second one -- opening two
+    cv2.VideoCapture handles on the same camera index concurrently breaks
+    frame grabbing on Windows (MSMF backend), found by an actual hardware
+    run, not a hypothetical. This function itself never imports cv2."""
     go = threading.Event()
     stop_event = threading.Event()
     anchors = {}
@@ -109,11 +112,25 @@ def run_synced_recording(imu_stream_factory, frame_source_factory, writer_factor
             anchors["imu_wall_clock_start_us"] = int(clock())
             imu_stats_holder["stats"] = record_imu(stream, f"{out_prefix}_imu.csv", stop_event)
 
-    thread = threading.Thread(target=imu_worker)
+    # daemon=True: if this thread somehow hangs anyway, it must not stop the
+    # process from exiting -- a live person waiting on a stuck recording tool
+    # is worse than a thread getting abandoned.
+    thread = threading.Thread(target=imu_worker, daemon=True)
     thread.start()
 
-    frame_source = frame_source_factory()
-    writer = writer_factory()
+    try:
+        frame_source = frame_source_factory()
+        writer = writer_factory(frame_source)
+    except Exception:
+        # Video-side setup failed before go.set() -- release the IMU thread
+        # from go.wait() (it would otherwise hang forever, found by an
+        # actual hardware run: a broken camera call here left imu_worker
+        # blocked indefinitely) and let it wind down before re-raising.
+        go.set()
+        stop_event.set()
+        thread.join(timeout=10.0)
+        raise
+
     go.set()
     anchors["video_wall_clock_start_us"] = int(clock())
 
@@ -155,11 +172,13 @@ def main(argv=None):
             raise RuntimeError(f"could not open camera index {args.camera}")
         return cap
 
-    def writer_factory():
-        cap = cv2.VideoCapture(args.camera)
+    def writer_factory(cap):
+        # Reads dimensions off the frame source already opened by
+        # frame_source_factory() -- does NOT open a second VideoCapture on
+        # the same camera index (see run_synced_recording's docstring for
+        # why that breaks frame grabbing on Windows).
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
-        cap.release()
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         return cv2.VideoWriter(f"{args.out}_video.mp4", fourcc, args.fps, (width, height))
 
