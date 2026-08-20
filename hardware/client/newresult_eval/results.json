@@ -1,0 +1,126 @@
+{
+  "backhand": {
+    "file_stem": "backhand",
+    "num_frames": 221,
+    "valid_frac": 1.0,
+    "contact_frame": 173,
+    "independent_score": 82.59197753197489,
+    "correlated_score": 81.37112861396645,
+    "skill_flags": null,
+    "imu": {
+      "rows": 1530,
+      "duration_s": 7.645002,
+      "peak_g": 13.226819147852593,
+      "peak_t_s": 2.705001,
+      "peak_mps2": 129.71078599628862
+    },
+    "volley_effort": null
+  },
+  "forehand": {
+    "file_stem": "forehand",
+    "num_frames": 293,
+    "valid_frac": 0.9989961855049186,
+    "contact_frame": 128,
+    "independent_score": 88.92250789667423,
+    "correlated_score": 85.66552979421124,
+    "skill_flags": null,
+    "imu": {
+      "rows": 1991,
+      "duration_s": 9.949999,
+      "peak_g": 12.573391862977944,
+      "peak_t_s": 2.0,
+      "peak_mps2": 123.30285331307265
+    },
+    "volley_effort": null
+  },
+  "backhand_volley": {
+    "file_stem": "backhandvolley",
+    "num_frames": 187,
+    "valid_frac": 0.9990563070147845,
+    "contact_frame": 35,
+    "independent_score": 82.40851935787148,
+    "correlated_score": 85.70276649351831,
+    "skill_flags": [
+      {
+        "rule": "shoulder_pelvis_twist_reversal",
+        "phase": null,
+        "note": "Shoulder-pelvis separation reverses direction between backswing and contact -- Katsumi et al. (2026) found this pattern in less-skilled backhand volleys (separation established late, rather than held through the swing)."
+      },
+      {
+        "rule": "excessive_pelvic_rotation",
+        "phase": "backswing",
+        "note": "Pelvic rotation at backswing is on the higher side for a backhand volley -- Katsumi et al. (2026) found less-skilled players over-rotate the pelvis relative to skilled players."
+      },
+      {
+        "rule": "excessive_pelvic_rotation",
+        "phase": "contact",
+        "note": "Pelvic rotation at contact is on the higher side for a backhand volley -- Katsumi et al. (2026) found less-skilled players over-rotate the pelvis relative to skilled players."
+      }
+    ],
+    "imu": {
+      "rows": 1293,
+      "duration_s": 6.460001,
+      "peak_g": 12.317293015918716,
+      "peak_t_s": 1.595002,
+      "peak_mps2": 120.79138155455928
+    },
+    "volley_effort": {
+      "flagged": true,
+      "note": "Swing effort leans toward the higher-force pattern associated with less controlled volleys -- try a shorter, more compact swing rather than swinging harder."
+    }
+  },
+  "forehand_volley": {
+    "file_stem": "forehandvolley",
+    "num_frames": 189,
+    "valid_frac": 0.9981325863678805,
+    "contact_frame": 180,
+    "independent_score": 79.6248895478564,
+    "correlated_score": 68.26736315157213,
+    "skill_flags": null,
+    "imu": {
+      "rows": 1303,
+      "duration_s": 6.51,
+      "peak_g": 11.809645031075236,
+      "peak_t_s": 1.595,
+      "peak_mps2": 115.81305544399396
+    },
+    "volley_effort": {
+      "flagged": true,
+      "note": "Swing effort leans toward the higher-force pattern associated with less controlled volleys -- try a shorter, more compact swing rather than swinging harder."
+    }
+  },
+  "serve": {
+    "file_stem": "serve",
+    "num_frames": 215,
+    "valid_frac": 0.9906976744186047,
+    "contact_frame": 152,
+    "independent_score": 86.98349547691554,
+    "correlated_score": 85.17282675438913,
+    "skill_flags": null,
+    "imu": {
+      "rows": 1472,
+      "duration_s": 7.35502,
+      "peak_g": 17.491236695842865,
+      "peak_t_s": 5.839998,
+      "peak_mps2": 171.53043634328742
+    },
+    "volley_effort": null
+  },
+  "smash": {
+    "file_stem": "smash",
+    "num_frames": 227,
+    "valid_frac": 0.994299041202384,
+    "contact_frame": 141,
+    "independent_score": 86.21089709205711,
+    "correlated_score": 85.69805732467856,
+    "skill_flags": null,
+    "imu": {
+      "rows": 1548,
+      "duration_s": 7.735,
+      "peak_g": 12.819581500969523,
+      "peak_t_s": 2.09,
+      "peak_mps2": 125.71714892648276
+    },
+    "volley_effort": null
+  }
+}
