@@ -455,6 +455,18 @@ ball-contact-based reference (Section 2.9) — but it did prove the complete cha
 physical sensor through to a rule-checking function, runs correctly end to end. A recording
 made with a real ball is the next step before that specific rule's output can be trusted.
 
+**Synchronized video + IMU recording** (`hardware/client/sync_recorder.py`, needs `pip
+install opencv-python`): starts the laptop's webcam and the racket's IMU stream together from
+one command, instead of two manually-launched programs, for collecting the real (not
+synthetic) data Section 2.7's fusion model needs. The IMU's own clock and the webcam's frame
+clock still have no hardware link between them, so both are anchored to the recording
+computer's wall clock at the moment each starts (written to `<name>_alignment.json`) — this
+removes the human delay of starting two programs by hand, but the tap-sync convention above
+remains the fine-grained sync point, not replaced by it. Its frame-capture and recording logic
+is unit-tested with a fake camera and the same mock-device pattern used for `imu_client.py`
+(Section 2.10 above); actually recording a full session — multiple people, multiple swings —
+is tracked in Section 5 as separate, larger work.
+
 ## 3. Results
 
 ### 3.1 Stroke Classification
@@ -664,9 +676,13 @@ Remaining work, in priority order:
 6. **Camera+IMU sync recording, then retrain the fusion model on real data** — the sensor
    board streams real accelerometer/gyroscope data today (Section 2.10), but
    `FusedBeginnerExpertModel` (Section 2.7) still trains only on a synthetic signal derived
-   from the skeleton. A synchronized video+IMU recording session (protocol already written,
-   `docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md`) is what's needed to
-   retrain and cross-validate it on real data, following the same 5-fold rigor as Section 3.2.
+   from the skeleton. The tool to record both together now exists
+   (`hardware/client/sync_recorder.py`, Section 2.10 — starts the webcam and the racket's IMU
+   stream together instead of two manually-launched programs, needs `pip install
+   opencv-python`), but recording itself is still pending: a real session (multiple people,
+   multiple swings, not one clip) is what's needed to retrain and cross-validate the model on
+   real data, following the same 5-fold rigor as Section 3.2. Protocol:
+   `docs/superpowers/specs/2026-07-23-imu-fusion-prototype-design.md`.
 7. **Wire Module A and Module B into the demo UI** (`ml/skilleye/app.py`) — both are
    implemented, tested, and validated on real data (Sections 2.8-2.9, 3.4) but only reachable
    through their own scripts/functions today, not through the Streamlit demo a judge would
@@ -734,7 +750,9 @@ hardware/firmware/firmware.ino     rev2.x streaming firmware, XIAO ESP32-C6 + GY
 hardware/client/imu_client.py      computer-side recording/monitoring client (§2.10)
 hardware/client/live_buffer.py     rolling-window buffer for the live dashboard, unit-tested (§2.10)
 hardware/client/live_dashboard.py  live IMU monitoring Streamlit page (§2.10)
-hardware/client/*.csv              real recordings: backhand/forehand/serve (with and without
+hardware/client/sync_recorder.py   one-command webcam+IMU recorder, unit-tested (§2.10, §5 item 6)
+hardware/client/requirements.txt   opencv-python -- only sync_recorder.py needs it
+hardware/client/recorded/*.csv     real recordings: backhand/forehand/serve (with and without
                                     ball contact) and one ball-less volley take (§2.10)
 docs/schematics/2.0/rev2.1/        rendered schematic PDF/SVG for the current (rev2.1) board
 docs/schematics/1.0/               rendered schematics for the earlier rev1.0/1.1 iteration
