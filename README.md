@@ -467,6 +467,14 @@ is unit-tested with a fake camera and the same mock-device pattern used for `imu
 (Section 2.10 above); actually recording a full session — multiple people, multiple swings —
 is tracked in Section 5 as separate, larger work.
 
+A desktop GUI version also exists (`hardware/client/sync_recorder_gui.py`, additionally needs
+`pillow`): Start/Stop buttons plus a live webcam preview while recording (a framing check, not
+live pose tracking — this project's pose estimation runs offline on saved clips elsewhere), and
+a native "Save As" dialog on Stop, so the take's name is chosen after seeing it was worth
+keeping rather than before recording starts. Its file-renaming logic is unit-tested; the Tk
+window itself isn't (no display/camera to drive it against in this dev environment) — same
+manual-QA convention as `live_dashboard.py`.
+
 ## 3. Results
 
 ### 3.1 Stroke Classification
@@ -751,7 +759,8 @@ hardware/client/imu_client.py      computer-side recording/monitoring client (§
 hardware/client/live_buffer.py     rolling-window buffer for the live dashboard, unit-tested (§2.10)
 hardware/client/live_dashboard.py  live IMU monitoring Streamlit page (§2.10)
 hardware/client/sync_recorder.py   one-command webcam+IMU recorder, unit-tested (§2.10, §5 item 6)
-hardware/client/requirements.txt   opencv-python -- only sync_recorder.py needs it
+hardware/client/sync_recorder_gui.py   Start/Stop + live preview + Save-As dialog version (§2.10)
+hardware/client/requirements.txt   opencv-python, pillow -- only the two sync_recorder* tools need these
 hardware/client/recorded/*.csv     real recordings: backhand/forehand/serve (with and without
                                     ball contact) and one ball-less volley take (§2.10)
 docs/schematics/2.0/rev2.1/        rendered schematic PDF/SVG for the current (rev2.1) board

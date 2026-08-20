@@ -1,3 +1,5 @@
-# Only sync_recorder.py needs this -- imu_client.py and live_dashboard.py's
-# non-Streamlit parts are deliberately standard-library only.
+# Only sync_recorder.py / sync_recorder_gui.py need these -- imu_client.py
+# and live_dashboard.py's non-Streamlit parts are deliberately standard-
+# library only. tkinter itself is in the standard library.
 opencv-python
+pillow
