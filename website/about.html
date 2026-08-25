@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Coach - 關於</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; color:#1a1a2e; background:#fcfcfc; line-height:1.6; }
+        .container { max-width:1200px; margin:0 auto; padding:0 24px; }
+
+        nav {
+            position:fixed; top:0; width:100%; background:rgba(255,255,255,0.95);
+            backdrop-filter:blur(12px); border-bottom:1px solid rgba(0,0,0,0.04);
+            z-index:1000; padding:0 24px;
+        }
+        nav .container { display:flex; align-items:center; justify-content:space-between; height:56px; }
+        .nav-logo { font-weight:800; font-size:1.25rem; letter-spacing:-0.5px; color:#2d6a4f; text-decoration:none; white-space:nowrap; }
+        .nav-links { display:flex; gap:20px; list-style:none; align-items:center; }
+        .nav-links a { text-decoration:none; color:#1a1a2e; font-size:0.85rem; font-weight:500; transition:color 0.2s; white-space:nowrap; padding:4px 0; border-bottom:2px solid transparent; }
+        .nav-links a:hover { color:#2d6a4f; }
+        .nav-links a.active { color:#2d6a4f; border-bottom-color:#2d6a4f; }
+        .lang-toggle { background:#e8f5e9; border:none; padding:5px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; cursor:pointer; color:#2d6a4f; }
+        .lang-toggle:hover { background:#c8e6c9; }
+        .mobile-menu-btn { display:none; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#1a1a2e; }
+
+        section { padding:120px 0 80px; background:#fff; min-height:100vh; }
+        .section-title { font-size:2.2rem; font-weight:700; margin-bottom:12px; letter-spacing:-1px; }
+        .section-sub { font-size:1.05rem; color:#555; max-width:640px; line-height:1.7; }
+
+        .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; margin-top:40px; }
+        .about-grips { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:24px; }
+        .grip-card { background:#f0fdf4; border-radius:16px; padding:20px; text-align:center; }
+        .grip-card h4 { font-size:0.85rem; margin-bottom:6px; color:#2d6a4f; }
+        .grip-card p { font-size:0.75rem; color:#666; }
+        .players-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+        .player-tag { background:#f0fdf4; padding:6px 16px; border-radius:100px; font-size:0.82rem; font-weight:500; white-space:nowrap; }
+        .tech-tag { background:#e8f5e9; padding:8px 16px; border-radius:100px; font-size:0.9rem; font-weight:500; display:inline-block; }
+
+        footer { border-top:1px solid rgba(0,0,0,0.05); padding:32px 0; text-align:center; font-size:0.85rem; color:#888; }
+
+        .lang-zh,.lang-en { transition:opacity 0.2s; }
+        .lang-hidden { display:none !important; }
+        .nav-links.open { display:flex; flex-direction:column; position:absolute; top:56px; left:0; right:0; background:rgba(255,255,255,0.98); backdrop-filter:blur(12px); padding:20px; gap:14px; border-bottom:1px solid rgba(0,0,0,0.04); }
+
+        @media (max-width: 768px) {
+            .nav-links { display:none; }
+            .mobile-menu-btn { display:block; }
+            .about-grid { grid-template-columns:1fr; }
+            .about-grips { grid-template-columns:1fr; }
+            .section-title { font-size:1.8rem; }
+            section { padding:100px 0 60px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <a href="index.html" class="nav-logo">🎾 AI Tennis Coach</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="index.html" class="lang-zh">首頁</a><a href="index.html" class="lang-en lang-hidden">Home</a></li>
+            <li><a href="about.html" class="lang-zh active">關於</a><a href="about.html" class="lang-en lang-hidden active">About</a></li>
+            <li><a href="training.html" class="lang-zh">訓練</a><a href="training.html" class="lang-en lang-hidden">Training</a></li>
+            <li><a href="gear.html" class="lang-zh">裝備</a><a href="gear.html" class="lang-en lang-hidden">Gear</a></li>
+            <li><a href="services.html" class="lang-zh">服務</a><a href="services.html" class="lang-en lang-hidden">AI</a></li>
+            <li><a href="contact.html" class="lang-zh">聯絡</a><a href="contact.html" class="lang-en lang-hidden">Contact</a></li>
+            <li><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-zh">📱 模擬器</a><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-en lang-hidden">📱 Simulator</a></li>
+            <li><button class="lang-toggle" id="langToggle">EN</button></li>
+        </ul>
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+    </div>
+</nav>
+
+<section>
+    <div class="container">
+        <h2 class="section-title lang-zh">我們教什麼</h2>
+        <h2 class="section-title lang-en lang-hidden">What We Teach</h2>
+        <p class="section-sub lang-zh">我們參考世界頂尖選手的技術，提供最完整的網球基礎訓練</p>
+        <p class="section-sub lang-en lang-hidden">We draw from world-class players to provide the most complete tennis foundation training</p>
+
+        <div class="about-grid">
+            <div>
+                <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:12px;" class="lang-zh">握拍方式</h3>
+                <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:12px;" class="lang-en lang-hidden">Grips</h3>
+                <div class="about-grips">
+                    <div class="grip-card">
+                        <h4 class="lang-zh">東方式正拍</h4>
+                        <h4 class="lang-en lang-hidden">Eastern Grip</h4>
+                        <p class="lang-zh">適合初學者，容易掌握</p>
+                        <p class="lang-en lang-hidden">Great for beginners</p>
+                    </div>
+                    <div class="grip-card">
+                        <h4 class="lang-zh">半西方式正拍</h4>
+                        <h4 class="lang-en lang-hidden">Semi-Western Grip</h4>
+                        <p class="lang-zh">最多職業選手使用</p>
+                        <p class="lang-en lang-hidden">Most popular among pros</p>
+                    </div>
+                    <div class="grip-card">
+                        <h4 class="lang-zh">西方式正拍</h4>
+                        <h4 class="lang-en lang-hidden">Western Grip</h4>
+                        <p class="lang-zh">適合強力上旋球</p>
+                        <p class="lang-en lang-hidden">Ideal for heavy topspin</p>
+                    </div>
+                </div>
+                <div style="margin-top:28px;">
+                    <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:12px;" class="lang-zh">技術項目</h3>
+                    <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:12px;" class="lang-en lang-hidden">Techniques</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <span class="tech-tag lang-zh">🏸 正手拍</span>
+                        <span class="tech-tag lang-en lang-hidden">🏸 Forehand</span>
+                        <span class="tech-tag lang-zh">🔄 反手拍</span>
+                        <span class="tech-tag lang-en lang-hidden">🔄 Backhand</span>
+                        <span class="tech-tag lang-zh">✋ 截擊</span>
+                        <span class="tech-tag lang-en lang-hidden">✋ Volley</span>
+                        <span class="tech-tag lang-zh">🚀 發球</span>
+                        <span class="tech-tag lang-en lang-hidden">🚀 Serve</span>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:12px;" class="lang-zh">參考選手</h3>
+                <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:12px;" class="lang-en lang-hidden">Model Players</h3>
+                <p style="color:#555;margin-bottom:12px;font-size:0.95rem;" class="lang-zh">我們以國際頂尖選手的動作為基準來分析你的技術</p>
+                <p style="color:#555;margin-bottom:12px;font-size:0.95rem;" class="lang-en lang-hidden">We benchmark against the world's best to analyze your technique</p>
+                <div class="players-list">
+                    <span class="player-tag">🇷🇸 Novak Djokovic</span>
+                    <span class="player-tag">🇪🇸 Rafael Nadal</span>
+                    <span class="player-tag">🇨🇭 Roger Federer</span>
+                    <span class="player-tag">🇮🇹 Jannik Sinner</span>
+                    <span class="player-tag">🇪🇸 Carlos Alcaraz</span>
+                    <span class="player-tag">🇩🇪 Alexander Zverev</span>
+                    <span class="player-tag">🇷🇺 Daniil Medvedev</span>
+                    <span class="player-tag">🇨🇦 Felix Auger-Aliassime</span>
+                    <span class="player-tag">🇺🇸 Ben Shelton</span>
+                    <span class="player-tag">🇦🇺 Alex de Minaur</span>
+                    <span class="player-tag">🇬🇷 Stefanos Tsitsipas</span>
+                    <span class="player-tag">🇳🇴 Casper Ruud</span>
+                    <span class="player-tag">🇷🇺 Andrey Rublev</span>
+                    <span class="player-tag">🇮🇹 Matteo Berrettini</span>
+                    <span class="player-tag">🇵🇱 Hubert Hurkacz</span>
+                    <span class="player-tag">🇨🇭 Stan Wawrinka</span>
+                    <span class="player-tag">🇭🇷 Marin Cilic</span>
+                    <span class="player-tag">🇺🇸 Taylor Fritz</span>
+                    <span class="player-tag">🇫🇷 Arthur Fils</span>
+                    <span class="player-tag">🇬🇧 Andy Murray</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p class="lang-zh">© 2026 AI Tennis Coach. 為初學者打造的免費 AI 網球教練</p>
+        <p class="lang-en lang-hidden">© 2026 AI Tennis Coach. Free AI coach for tennis beginners</p>
+    </div>
+</footer>
+
+<script>
+    const langToggle = document.getElementById('langToggle');
+    let currentLang = localStorage.getItem('aiTennisLang') || 'zh';
+    const zhElements = document.querySelectorAll('.lang-zh');
+    const enElements = document.querySelectorAll('.lang-en');
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('aiTennisLang', lang);
+        zhElements.forEach(el => { if (lang === 'zh') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        enElements.forEach(el => { if (lang === 'en') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        langToggle.textContent = lang === 'zh' ? 'EN' : '中文';
+        document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+    }
+    setLang(currentLang);
+    langToggle.addEventListener('click', () => { setLang(currentLang === 'zh' ? 'en' : 'zh'); });
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const navLinks = document.getElementById('navLinks');
+    mobileBtn.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+    navLinks.querySelectorAll('a').forEach(a => { a.addEventListener('click', () => navLinks.classList.remove('open')); });
+</script>
+
+</body>
+</html>

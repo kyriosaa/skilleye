@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Coach - AI 分析系統</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; color:#1a1a2e; background:#fcfcfc; line-height:1.6; }
+        .container { max-width:1200px; margin:0 auto; padding:0 24px; }
+
+        nav {
+            position:fixed; top:0; width:100%; background:rgba(255,255,255,0.95);
+            backdrop-filter:blur(12px); border-bottom:1px solid rgba(0,0,0,0.04);
+            z-index:1000; padding:0 24px;
+        }
+        nav .container { display:flex; align-items:center; justify-content:space-between; height:56px; }
+        .nav-logo { font-weight:800; font-size:1.25rem; letter-spacing:-0.5px; color:#2d6a4f; text-decoration:none; white-space:nowrap; }
+        .nav-links { display:flex; gap:20px; list-style:none; align-items:center; }
+        .nav-links a { text-decoration:none; color:#1a1a2e; font-size:0.85rem; font-weight:500; transition:color 0.2s; white-space:nowrap; padding:4px 0; border-bottom:2px solid transparent; }
+        .nav-links a:hover { color:#2d6a4f; }
+        .nav-links a.active { color:#2d6a4f; border-bottom-color:#2d6a4f; }
+        .lang-toggle { background:#e8f5e9; border:none; padding:5px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; cursor:pointer; color:#2d6a4f; }
+        .lang-toggle:hover { background:#c8e6c9; }
+        .mobile-menu-btn { display:none; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#1a1a2e; }
+
+        section { min-height:100vh; display:flex; align-items:center; padding-top:56px; background:linear-gradient(135deg,#f0fdf4 0%,#d8f3dc 50%,#b7e4c7 100%); }
+        section .container { text-align:center; }
+        .section-title { font-size:2.4rem; font-weight:800; margin-bottom:12px; letter-spacing:-1px; }
+        .section-sub { font-size:1.1rem; color:#444; max-width:600px; line-height:1.7; margin:0 auto 48px; }
+
+        .services-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; max-width:960px; margin:0 auto; }
+        .service-card { background:#fff; border-radius:20px; padding:36px 24px; box-shadow:0 8px 30px rgba(0,0,0,0.06); transition:transform 0.2s; }
+        .service-card:hover { transform:translateY(-6px); }
+        .service-icon { font-size:3rem; margin-bottom:16px; }
+        .service-card h3 { font-size:1.15rem; font-weight:700; margin-bottom:10px; }
+        .service-card p { font-size:0.9rem; color:#555; }
+
+        .coming-soon { margin-top:48px; padding:16px 32px; background:rgba(45,106,79,0.1); border-radius:40px; display:inline-block; }
+        .coming-soon p { font-size:0.95rem; color:#2d6a4f; font-weight:600; }
+
+        footer { border-top:1px solid rgba(0,0,0,0.05); padding:32px 0; text-align:center; font-size:0.85rem; color:#888; }
+
+        .lang-zh,.lang-en { transition:opacity 0.2s; }
+        .lang-hidden { display:none !important; }
+        .nav-links.open { display:flex; flex-direction:column; position:absolute; top:56px; left:0; right:0; background:rgba(255,255,255,0.98); backdrop-filter:blur(12px); padding:20px; gap:14px; border-bottom:1px solid rgba(0,0,0,0.04); }
+
+        @media (max-width: 768px) {
+            .nav-links { display:none; }
+            .mobile-menu-btn { display:block; }
+            .services-grid { grid-template-columns:1fr; }
+            .section-title { font-size:1.8rem; }
+        }
+        @keyframes desktopScan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <a href="index.html" class="nav-logo">🎾 AI Tennis Coach</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="index.html" class="lang-zh">首頁</a><a href="index.html" class="lang-en lang-hidden">Home</a></li>
+            <li><a href="about.html" class="lang-zh">關於</a><a href="about.html" class="lang-en lang-hidden">About</a></li>
+            <li><a href="training.html" class="lang-zh">訓練</a><a href="training.html" class="lang-en lang-hidden">Training</a></li>
+            <li><a href="gear.html" class="lang-zh">裝備</a><a href="gear.html" class="lang-en lang-hidden">Gear</a></li>
+            <li><a href="services.html" class="lang-zh active">服務</a><a href="services.html" class="lang-en lang-hidden active">AI</a></li>
+            <li><a href="contact.html" class="lang-zh">聯絡</a><a href="contact.html" class="lang-en lang-hidden">Contact</a></li>
+            <li><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-zh">📱 模擬器</a><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-en lang-hidden">📱 Simulator</a></li>
+            <li><button class="lang-toggle" id="langToggle">EN</button></li>
+        </ul>
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+    </div>
+</nav>
+
+<section>
+    <div class="container">
+        <span style="display:inline-block;background:rgba(45,106,79,0.1);color:#2d6a4f;padding:6px 20px;border-radius:100px;font-size:0.85rem;font-weight:600;margin-bottom:20px;" class="lang-zh">🤖 已上線</span>
+        <span style="display:inline-block;background:rgba(45,106,79,0.1);color:#2d6a4f;padding:6px 20px;border-radius:100px;font-size:0.85rem;font-weight:600;margin-bottom:20px;" class="lang-en lang-hidden">🤖 Now Live</span>
+        <h2 class="section-title lang-zh">AI 分析系統</h2>
+        <h2 class="section-title lang-en lang-hidden">AI Analysis System</h2>
+        <p class="section-sub lang-zh">上傳影片或即時拍攝，AI 立即分析你的揮拍動作，提供專業反饋</p>
+        <p class="section-sub lang-en lang-hidden">Upload a video or record in real-time — AI analyzes your swings and gives professional feedback</p>
+
+        <div class="services-grid">
+            <div class="service-card" style="cursor:pointer;" onclick="window.location.href='analysis.html'">
+                <div class="service-icon">📹</div>
+                <h3 class="lang-zh">影片上傳分析</h3>
+                <h3 class="lang-en lang-hidden">Video Upload</h3>
+                <p class="lang-zh" style="margin-top: 10px;">點擊此處進入專屬分析頁面，上傳您的練習影片進行 AI 動作與動力鏈診斷</p>
+                <p class="lang-en lang-hidden" style="margin-top: 10px;">Click here to enter the analysis page, upload your practice video for AI analysis</p>
+            </div>
+            <div class="service-card" style="cursor:pointer;" onclick="window.location.href='analysis.html?mode=camera'">
+                <div class="service-icon">🎥</div>
+                <h3 class="lang-zh">即時拍攝</h3>
+                <h3 class="lang-en lang-hidden">Real-time</h3>
+                <p class="lang-zh" style="margin-top: 10px;">點擊此處開啟您的前置鏡頭或攝影機，直接在球場上進行 AI 即時動作偵測與分析</p>
+                <p class="lang-en lang-hidden" style="margin-top: 10px;">Click here to open your front camera or webcam for live real-time AI swing feedback</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">📊</div>
+                <h3 class="lang-zh">詳細報告</h3>
+                <h3 class="lang-en lang-hidden">Detailed Report</h3>
+                <p class="lang-zh">正確度評分、品質分析、錯誤偵測與改進建議</p>
+                <p class="lang-en lang-hidden">Accuracy scores, error detection & tips</p>
+            </div>
+        </div>
+
+        <div class="coming-soon">
+            <p class="lang-zh">✅ 系統已上線！點擊上方卡片即可體驗真實 AI 模型分析（請先啟動模型伺服器）</p>
+            <p class="lang-en lang-hidden">✅ Live now! Click a card above to run analysis with the real AI model (start the model server first)</p>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p class="lang-zh">© 2026 AI Tennis Coach. 為初學者打造的免費 AI 網球教練</p>
+        <p class="lang-en lang-hidden">© 2026 AI Tennis Coach. Free AI coach for tennis beginners</p>
+    </div>
+</footer>
+
+<script>
+    const langToggle = document.getElementById('langToggle');
+    let currentLang = localStorage.getItem('aiTennisLang') || 'zh';
+    const zhElements = document.querySelectorAll('.lang-zh');
+    const enElements = document.querySelectorAll('.lang-en');
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('aiTennisLang', lang);
+        zhElements.forEach(el => { if (lang === 'zh') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        enElements.forEach(el => { if (lang === 'en') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        langToggle.textContent = lang === 'zh' ? 'EN' : '中文';
+        document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+    }
+    setLang(currentLang);
+    langToggle.addEventListener('click', () => { setLang(currentLang === 'zh' ? 'en' : 'zh'); });
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const navLinks = document.getElementById('navLinks');
+    mobileBtn.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+    navLinks.querySelectorAll('a').forEach(a => { a.addEventListener('click', () => navLinks.classList.remove('open')); });
+</script>
+
+</body>
+</html>

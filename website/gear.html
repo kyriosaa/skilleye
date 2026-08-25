@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Coach - 裝備</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1a1a2e;
+            background: #fcfcfc;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            z-index: 1000;
+            padding: 0 24px;
+        }
+
+        nav .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px;
+        }
+
+        .nav-logo {
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.5px;
+            color: #2d6a4f;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #1a1a2e;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            white-space: nowrap;
+            padding: 4px 0;
+            border-bottom: 2px solid transparent;
+        }
+
+        .nav-links a:hover {
+            color: #2d6a4f;
+        }
+
+        .nav-links a.active {
+            color: #2d6a4f;
+            border-bottom-color: #2d6a4f;
+        }
+
+        .lang-toggle {
+            background: #e8f5e9;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #2d6a4f;
+        }
+
+        .lang-toggle:hover {
+            background: #c8e6c9;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #1a1a2e;
+        }
+
+        .subnav {
+            position: fixed;
+            top: 56px;
+            width: 100%;
+            background: rgba(247, 250, 248, 0.95);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            z-index: 999;
+            padding: 0 24px;
+        }
+
+        .subnav .container {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+            height: 40px;
+            overflow-x: auto;
+        }
+
+        .subnav a {
+            text-decoration: none;
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+            white-space: nowrap;
+            transition: color 0.2s;
+            padding: 2px 0;
+            border-bottom: 2px solid transparent;
+        }
+
+        .subnav a:hover {
+            color: #2d6a4f;
+        }
+
+        .subnav a.active {
+            color: #2d6a4f;
+            border-bottom-color: #2d6a4f;
+        }
+
+        .subnav span {
+            font-size: 0.75rem;
+            color: #aaa;
+        }
+
+        section {
+            padding: 120px 0 80px;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+        }
+
+        .section-sub {
+            font-size: 1rem;
+            color: #555;
+            max-width: 640px;
+            line-height: 1.7;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 36px;
+        }
+
+        .info-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 28px 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            transition: transform 0.2s;
+        }
+
+        .info-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .info-card .icon {
+            font-size: 2.2rem;
+            margin-bottom: 12px;
+        }
+
+        .info-card h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .info-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-card li {
+            font-size: 0.85rem;
+            color: #555;
+            padding: 4px 0;
+            padding-left: 18px;
+            position: relative;
+        }
+
+        .info-card li::before {
+            content: "•";
+            color: #2d6a4f;
+            position: absolute;
+            left: 2px;
+            font-weight: 700;
+        }
+
+        .equip-icon {
+            font-size: 2.6rem;
+            margin-bottom: 12px;
+        }
+
+        .court-card {
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            transition: transform 0.2s;
+        }
+
+        .court-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .court-color {
+            height: 10px;
+        }
+
+        .court-color.clay {
+            background: #c4553a;
+        }
+
+        .court-color.grass {
+            background: #4a9c5b;
+        }
+
+        .court-color.hard {
+            background: #7a8a9a;
+        }
+
+        .court-body {
+            padding: 24px;
+        }
+
+        .court-body h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .court-body p {
+            font-size: 0.85rem;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .court-spec {
+            display: flex;
+            gap: 14px;
+            margin-top: 10px;
+            font-size: 0.78rem;
+        }
+
+        .court-spec span {
+            background: #f0fdf4;
+            padding: 3px 10px;
+            border-radius: 100px;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 36px;
+        }
+
+        .shoe-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .shoe-item {
+            background: #f0fdf4;
+            border-radius: 14px;
+            padding: 18px;
+        }
+
+        .shoe-item h4 {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+            color: #2d6a4f;
+        }
+
+        .shoe-item p {
+            font-size: 0.78rem;
+            color: #555;
+        }
+
+        .section-divider {
+            text-align: center;
+            margin: 48px 0 32px;
+        }
+
+        .section-divider span {
+            display: inline-block;
+            width: 60px;
+            height: 3px;
+            background: #2d6a4f;
+            border-radius: 4px;
+        }
+
+        footer {
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 32px 0;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .lang-zh,
+        .lang-en {
+            transition: opacity 0.2s;
+        }
+
+        .lang-hidden {
+            display: none !important;
+        }
+
+        .nav-links.open {
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 56px;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(12px);
+            padding: 20px;
+            gap: 14px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        @media (max-width: 900px) {
+            .cards-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+
+            .shoe-list {
+                grid-template-columns: 1fr;
+            }
+
+            .section-title {
+                font-size: 1.6rem;
+            }
+
+            section {
+                padding: 100px 0 60px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div class="container">
+            <a href="index.html" class="nav-logo">🎾 AI Tennis Coach</a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html" class="lang-zh">首頁</a><a href="index.html" class="lang-en lang-hidden">Home</a></li>
+                <li><a href="about.html" class="lang-zh">關於</a><a href="about.html" class="lang-en lang-hidden">About</a></li>
+                <li><a href="training.html" class="lang-zh">訓練</a><a href="training.html" class="lang-en lang-hidden">Training</a></li>
+                <li><a href="gear.html" class="lang-zh active">裝備</a><a href="gear.html" class="lang-en lang-hidden active">Gear</a></li>
+                <li><a href="services.html" class="lang-zh">服務</a><a href="services.html" class="lang-en lang-hidden">AI</a></li>
+                <li><a href="contact.html" class="lang-zh">聯絡</a><a href="contact.html" class="lang-en lang-hidden">Contact</a></li>
+                <li><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-zh">📱 模擬器</a><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-en lang-hidden">📱 Simulator</a></li>
+                <li><button class="lang-toggle" id="langToggle">EN</button></li>
+            </ul>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        </div>
+    </nav>
+
+    <div class="subnav">
+        <div class="container">
+            <a href="#equipment" class="lang-zh active">🏸 器材介紹</a><a href="#equipment"
+                class="lang-en lang-hidden active">🏸 Equipment</a>
+            <span>|</span>
+            <a href="#courts" class="lang-zh">🏟️ 場地介紹</a><a href="#courts" class="lang-en lang-hidden">🏟️ Courts</a>
+            <span>|</span>
+            <a href="#shoes" class="lang-zh">👟 球鞋選擇</a><a href="#shoes" class="lang-en lang-hidden">👟 Shoes</a>
+        </div>
+    </div>
+
+    <section id="equipment" style="padding-top:140px;">
+        <div class="container">
+            <h2 class="section-title lang-zh">器材介紹</h2>
+            <h2 class="section-title lang-en lang-hidden">Equipment</h2>
+            <p class="section-sub lang-zh">選擇適合自己的器材，讓學習事半功倍</p>
+            <p class="section-sub lang-en lang-hidden">Choose the right gear for better learning</p>
+
+            <div class="cards-grid">
+                <div class="info-card">
+                    <div class="icon equip-icon">🎾</div>
+                    <h3 class="lang-zh">網球拍</h3>
+                    <h3 class="lang-en lang-hidden">Racket</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>拍面大小：</strong>初學者建議 100 sq.in 以上</li>
+                        <li class="lang-en lang-hidden"><strong>Head Size:</strong> 100+ sq.in recommended</li>
+                        <li class="lang-zh"><strong>重量：</strong>男 275-295g / 女 265-285g</li>
+                        <li class="lang-en lang-hidden"><strong>Weight:</strong> Men 275-295g / Women 265-285g</li>
+                        <li class="lang-zh"><strong>材質：</strong>碳纖維為主，避震好且輕量</li>
+                        <li class="lang-en lang-hidden"><strong>Material:</strong> Carbon fiber</li>
+                        <li class="lang-zh"><strong>握把尺寸：</strong>一般男性 2 號，女性 1 號</li>
+                        <li class="lang-en lang-hidden"><strong>Grip Size:</strong> Men size 2, Women size 1</li>
+                    </ul>
+                </div>
+                <div class="info-card">
+                    <div class="icon equip-icon">🧻</div>
+                    <h3 class="lang-zh">握把布</h3>
+                    <h3 class="lang-en lang-hidden">Overgrip</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>PU 黏性握把布：</strong>手感舒適，最常見</li>
+                        <li class="lang-en lang-hidden"><strong>PU Tacky Grip:</strong> Most common</li>
+                        <li class="lang-zh"><strong>毛巾布握把布：</strong>吸汗力強，適合手汗多者</li>
+                        <li class="lang-en lang-hidden"><strong>Towel Grip:</strong> Great sweat absorption</li>
+                        <li class="lang-zh"><strong>底層握把布：</strong>墊在握把基底上</li>
+                        <li class="lang-en lang-hidden"><strong>Base Grip:</strong> On bare handle</li>
+                        <li class="lang-zh">建議每 1-2 週更換一次外層握把布</li>
+                        <li class="lang-en lang-hidden">Replace overgrip every 1-2 weeks</li>
+                    </ul>
+                </div>
+                <div class="info-card">
+                    <div class="icon equip-icon"><img src=".\Image\shockabsorbers.png" width="60px" height="50px"></div>
+                    <h3 class="lang-zh">避震器</h3>
+                    <h3 class="lang-en lang-hidden">Dampener</h3>
+                    <ul>
+                        <li class="lang-zh">安裝在拍頭最下方兩條線之間</li>
+                        <li class="lang-en lang-hidden">Between the two bottom strings</li>
+                        <li class="lang-zh">減少擊球時的震動與共鳴聲</li>
+                        <li class="lang-en lang-hidden">Reduces vibration & noise</li>
+                        <li class="lang-zh">有小圓形、愛心形、條狀等款式</li>
+                        <li class="lang-en lang-hidden">Various shapes available</li>
+                    </ul>
+                </div>
+                <div class="info-card">
+                    <div class="icon equip-icon">🪢</div>
+                    <h3 class="lang-zh">網球線</h3>
+                    <h3 class="lang-en lang-hidden">String</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>Poly（聚酯線）：</strong>耐用、控球佳</li>
+                        <li class="lang-en lang-hidden"><strong>Poly:</strong> Durable, good control</li>
+                        <li class="lang-zh"><strong>仿腸線：</strong>彈性好、手感舒適，適合初學者</li>
+                        <li class="lang-en lang-hidden"><strong>Nylon:</strong> Great feel for beginners</li>
+                        <li class="lang-zh">初學者建議穿線磅數：45-55 lbs</li>
+                        <li class="lang-en lang-hidden">Beginner tension: 45-55 lbs</li>
+                    </ul>
+                </div>
+                <div class="info-card">
+                    <div class="icon equip-icon"><img src=".\Image\TennisBall.png" width="40px" height="40px"></div>
+                    <h3 class="lang-zh">網球</h3>
+                    <h3 class="lang-en lang-hidden">Balls</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>一般球：</strong>標準比賽用壓力球</li>
+                        <li class="lang-en lang-hidden"><strong>Standard:</strong> Pressurized match balls</li>
+                        <li class="lang-zh"><strong>減壓球：</strong>彈跳低速度慢，適合初學者</li>
+                        <li class="lang-en lang-hidden"><strong>Pressureless:</strong> Lower bounce for beginners</li>
+                        <li class="lang-zh">初學者強烈建議先使用減壓球</li>
+                        <li class="lang-en lang-hidden">Start with pressureless balls</li>
+                    </ul>
+                </div>
+                <div class="info-card">
+                    <div class="icon equip-icon">🎒</div>
+                    <h3 class="lang-zh">其他配件</h3>
+                    <h3 class="lang-en lang-hidden">Accessories</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>球拍袋：</strong>保護球拍</li>
+                        <li class="lang-en lang-hidden"><strong>Racket Bag:</strong> Protects rackets</li>
+                        <li class="lang-zh"><strong>頭帶／護腕：</strong>吸汗保持乾爽</li>
+                        <li class="lang-en lang-hidden"><strong>Headband/Wristband:</strong> Absorb sweat</li>
+                        <li class="lang-zh"><strong>運動毛巾 & 水瓶：</strong>必備</li>
+                        <li class="lang-en lang-hidden"><strong>Towel & Water:</strong> Essential</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"><span></span></div>
+
+    <section id="courts">
+        <div class="container">
+            <h2 class="section-title lang-zh">場地介紹</h2>
+            <h2 class="section-title lang-en lang-hidden">Court Types</h2>
+            <p class="section-sub lang-zh">不同場地影響球速、彈跳與打法</p>
+            <p class="section-sub lang-en lang-hidden">Each surface affects speed, bounce, and play style</p>
+
+            <div class="cards-grid">
+                <div class="court-card">
+                    <div class="court-color clay"></div>
+                    <div class="court-body">
+                        <h3>🏟️ <span class="lang-zh">紅土球場</span><span class="lang-en lang-hidden">Clay Court</span>
+                        </h3>
+                        <p class="lang-zh">球速最慢、彈跳最高，適合底線防守型。可滑步救球，對膝蓋友善。</p>
+                        <p class="lang-en lang-hidden">Slowest with highest bounce. Great for baseliners. Allows
+                            sliding.</p>
+                        <div class="court-spec">
+                            <span class="lang-zh">🐢 球速慢</span><span class="lang-en lang-hidden">🐢 Slow</span>
+                            <span class="lang-zh">⬆️ 彈跳高</span><span class="lang-en lang-hidden">⬆️ High Bounce</span>
+                            <span class="lang-zh">🏆 法網</span><span class="lang-en lang-hidden">🏆 French Open</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="court-card">
+                    <div class="court-color grass"></div>
+                    <div class="court-body">
+                        <h3>🌿 <span class="lang-zh">草地球場</span><span class="lang-en lang-hidden">Grass Court</span>
+                        </h3>
+                        <p class="lang-zh">球速最快、彈跳低且不規則，適合發球上網型。維護成本高，數量較少。</p>
+                        <p class="lang-en lang-hidden">Fastest with low bounce. Favors serve-and-volley players.</p>
+                        <div class="court-spec">
+                            <span class="lang-zh">🚀 球速快</span><span class="lang-en lang-hidden">🚀 Fast</span>
+                            <span class="lang-zh">⬇️ 彈跳低</span><span class="lang-en lang-hidden">⬇️ Low Bounce</span>
+                            <span class="lang-zh">🏆 溫網</span><span class="lang-en lang-hidden">🏆 Wimbledon</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="court-card">
+                    <div class="court-color hard"></div>
+                    <div class="court-body">
+                        <h3>🪨 <span class="lang-zh">硬地球場</span><span class="lang-en lang-hidden">Hard Court</span></h3>
+                        <p class="lang-zh">球速與彈跳適中，最常見的場地。適合各類型選手，但對膝蓋負擔較大。</p>
+                        <p class="lang-en lang-hidden">Medium speed & bounce. Most common surface. Tough on joints.</p>
+                        <div class="court-spec">
+                            <span class="lang-zh">⚖️ 球速中等</span><span class="lang-en lang-hidden">⚖️ Medium</span>
+                            <span class="lang-zh">📏 彈跳均勻</span><span class="lang-en lang-hidden">📏 Consistent</span>
+                            <span class="lang-zh">🏆 澳網／美網</span><span class="lang-en lang-hidden">🏆 Australian/US
+                                Open</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"><span></span></div>
+
+    <section id="shoes">
+        <div class="container">
+            <h2 class="section-title lang-zh">球鞋選擇</h2>
+            <h2 class="section-title lang-en lang-hidden">Tennis Shoes</h2>
+            <p class="section-sub lang-zh">好的網球鞋提供支撐、穩定與抓地力</p>
+            <p class="section-sub lang-en lang-hidden">Good shoes provide support, stability & traction</p>
+
+            <div class="two-col">
+                <div>
+                    <div class="info-card">
+                        <div class="icon">👟</div>
+                        <h3 class="lang-zh">選鞋要點</h3>
+                        <h3 class="lang-en lang-hidden">Buying Tips</h3>
+                        <ul>
+                            <li class="lang-zh"><strong>尺寸：</strong>比平常穿大半號</li>
+                            <li class="lang-en lang-hidden"><strong>Size:</strong> Half size up</li>
+                            <li class="lang-zh"><strong>避震：</strong>選擇中底有良好緩震設計</li>
+                            <li class="lang-en lang-hidden"><strong>Cushioning:</strong> Good midsole padding</li>
+                            <li class="lang-zh"><strong>包覆性：</strong>腳跟與鞋面要穩固貼合</li>
+                            <li class="lang-en lang-hidden"><strong>Support:</strong> Snug heel & upper fit</li>
+                            <li class="lang-zh"><strong>耐磨：</strong>硬地球場選高密度橡膠鞋底</li>
+                            <li class="lang-en lang-hidden"><strong>Durability:</strong> High-density rubber for hard
+                                courts</li>
+                        </ul>
+                    </div>
+                </div>
+                <div>
+                    <div class="info-card">
+                        <div class="icon">🏟️</div>
+                        <h3 class="lang-zh">依場地選擇</h3>
+                        <h3 class="lang-en lang-hidden">By Surface</h3>
+                        <div class="shoe-list">
+                            <div class="shoe-item">
+                                <h4 class="lang-zh">🪨 硬地鞋</h4>
+                                <h4 class="lang-en lang-hidden">🪨 Hard Court</h4>
+                                <p class="lang-zh">人字紋 × 加強耐磨</p>
+                                <p class="lang-en lang-hidden">Herringbone × durable</p>
+                            </div>
+                            <div class="shoe-item">
+                                <h4 class="lang-zh">🏟️ 紅土鞋</h4>
+                                <h4 class="lang-en lang-hidden">🏟️ Clay Court</h4>
+                                <p class="lang-zh">全人字紋 × 紋路寬疏</p>
+                                <p class="lang-en lang-hidden">Full herringbone</p>
+                            </div>
+                            <div class="shoe-item">
+                                <h4 class="lang-zh">🌿 草地鞋</h4>
+                                <h4 class="lang-en lang-hidden">🌿 Grass Court</h4>
+                                <p class="lang-zh">小鞋釘狀鞋底</p>
+                                <p class="lang-en lang-hidden">Small stud pattern</p>
+                            </div>
+                            <div class="shoe-item">
+                                <h4 class="lang-zh">🔄 全能型</h4>
+                                <h4 class="lang-en lang-hidden">🔄 All Court</h4>
+                                <p class="lang-zh">綜合設計，適合初學者</p>
+                                <p class="lang-en lang-hidden">Versatile for beginners</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p class="lang-zh">© 2026 AI Tennis Coach. 為初學者打造的免費 AI 網球教練</p>
+            <p class="lang-en lang-hidden">© 2026 AI Tennis Coach. Free AI coach for tennis beginners</p>
+        </div>
+    </footer>
+
+    <script>
+        const langToggle = document.getElementById('langToggle');
+        let currentLang = localStorage.getItem('aiTennisLang') || 'zh';
+        const zhElements = document.querySelectorAll('.lang-zh');
+        const enElements = document.querySelectorAll('.lang-en');
+        function setLang(lang) {
+            currentLang = lang;
+            localStorage.setItem('aiTennisLang', lang);
+            zhElements.forEach(el => { if (lang === 'zh') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+            enElements.forEach(el => { if (lang === 'en') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+            langToggle.textContent = lang === 'zh' ? 'EN' : '中文';
+            document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+        }
+        setLang(currentLang);
+        langToggle.addEventListener('click', () => { setLang(currentLang === 'zh' ? 'en' : 'zh'); });
+        const mobileBtn = document.getElementById('mobileMenuBtn');
+        const navLinks = document.getElementById('navLinks');
+        mobileBtn.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+        navLinks.querySelectorAll('a').forEach(a => { a.addEventListener('click', () => navLinks.classList.remove('open')); });
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const target = document.querySelector(a.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    </script>
+
+</body>
+
+</html>
