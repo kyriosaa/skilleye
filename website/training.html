@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Coach - 訓練</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; color:#1a1a2e; background:#fcfcfc; line-height:1.6; }
+        .container { max-width:1200px; margin:0 auto; padding:0 24px; }
+
+        nav {
+            position:fixed; top:0; width:100%; background:rgba(255,255,255,0.95);
+            backdrop-filter:blur(12px); border-bottom:1px solid rgba(0,0,0,0.04);
+            z-index:1000; padding:0 24px;
+        }
+        nav .container { display:flex; align-items:center; justify-content:space-between; height:56px; }
+        .nav-logo { font-weight:800; font-size:1.25rem; letter-spacing:-0.5px; color:#2d6a4f; text-decoration:none; white-space:nowrap; }
+        .nav-links { display:flex; gap:20px; list-style:none; align-items:center; }
+        .nav-links a { text-decoration:none; color:#1a1a2e; font-size:0.85rem; font-weight:500; transition:color 0.2s; white-space:nowrap; padding:4px 0; border-bottom:2px solid transparent; }
+        .nav-links a:hover { color:#2d6a4f; }
+        .nav-links a.active { color:#2d6a4f; border-bottom-color:#2d6a4f; }
+        .lang-toggle { background:#e8f5e9; border:none; padding:5px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; cursor:pointer; color:#2d6a4f; }
+        .lang-toggle:hover { background:#c8e6c9; }
+        .mobile-menu-btn { display:none; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#1a1a2e; }
+
+        .subnav {
+            position:fixed; top:56px; width:100%; background:rgba(247,250,248,0.95);
+            backdrop-filter:blur(8px); border-bottom:1px solid rgba(0,0,0,0.04);
+            z-index:999; padding:0 24px;
+        }
+        .subnav .container { display:flex; align-items:center; gap:28px; height:40px; overflow-x:auto; }
+        .subnav a { text-decoration:none; font-size:0.8rem; color:#666; font-weight:500; white-space:nowrap; transition:color 0.2s; padding:2px 0; border-bottom:2px solid transparent; }
+        .subnav a:hover { color:#2d6a4f; }
+        .subnav a.active { color:#2d6a4f; border-bottom-color:#2d6a4f; }
+        .subnav span { font-size:0.75rem; color:#aaa; }
+
+        section { padding:120px 0 80px; background:#fff; }
+        .section-title { font-size:2rem; font-weight:700; margin-bottom:8px; letter-spacing:-1px; }
+        .section-sub { font-size:1rem; color:#555; max-width:640px; line-height:1.7; }
+
+        .warmup-type { font-size:1.1rem; font-weight:700; margin:28px 0 16px; color:#2d6a4f; }
+
+        .chibi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+        .chibi-card { background:#fff; border-radius:20px; padding:24px 16px; text-align:center; box-shadow:0 4px 16px rgba(0,0,0,0.04); transition:transform 0.2s; }
+        .chibi-card:hover { transform:translateY(-4px); }
+        .chibi { width:100px; height:120px; margin:0 auto 12px; position:relative; }
+        .chibi-head { width:40px; height:40px; background:#fde8d0; border-radius:50%; margin:0 auto; position:relative; }
+        .chibi-eye { width:4px; height:5px; background:#333; border-radius:50%; position:absolute; top:16px; }
+        .chibi-eye.l { left:10px; } .chibi-eye.r { right:10px; }
+        .chibi-mouth { width:8px; height:4px; border-bottom:2px solid #c97; border-radius:0 0 8px 8px; position:absolute; bottom:10px; left:50%; margin-left:-4px; }
+        .chibi-body { width:30px; height:40px; background:#2d6a4f; border-radius:12px 12px 6px 6px; margin:4px auto 0; position:relative; }
+        .chibi-arm { width:6px; height:30px; background:#fde8d0; border-radius:4px; position:absolute; top:6px; }
+        .chibi-arm.l { left:-10px; transform:rotate(-30deg); transform-origin:top center; }
+        .chibi-arm.r { right:-10px; transform:rotate(30deg); transform-origin:top center; }
+        .chibi-arm.up.l { transform:rotate(-120deg); height:28px; }
+        .chibi-arm.up.r { transform:rotate(120deg); height:28px; }
+        .chibi-arm.side.l { transform:rotate(-80deg); }
+        .chibi-arm.side.r { transform:rotate(80deg); }
+        .chibi-leg { width:8px; height:24px; background:#fde8d0; border-radius:4px; position:absolute; bottom:-20px; }
+        .chibi-leg.l { left:2px; transform:rotate(-10deg); }
+        .chibi-leg.r { right:2px; transform:rotate(10deg); }
+        .chibi-leg.kick.l { transform:rotate(-40deg); }
+        .chibi-leg.kick.r { transform:rotate(40deg); }
+        .chibi-label { font-size:0.8rem; font-weight:600; color:#2d6a4f; margin-top:4px; }
+        .chibi-desc { font-size:0.72rem; color:#666; margin-top:2px; }
+
+        .two-col { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-top:36px; }
+        .info-card { background:#f7faf8; border-radius:20px; padding:28px 24px; box-shadow:0 4px 16px rgba(0,0,0,0.04); }
+        .info-card .icon { font-size:2rem; margin-bottom:12px; }
+        .info-card h3 { font-size:1.1rem; font-weight:700; margin-bottom:10px; }
+        .info-card ul { list-style:none; padding:0; }
+        .info-card li { font-size:0.88rem; color:#555; padding:5px 0; padding-left:20px; position:relative; }
+        .info-card li::before { content:"•"; color:#2d6a4f; position:absolute; left:4px; font-weight:700; }
+
+        .tip-box { margin-top:16px; padding:14px; background:#e8f5e9; border-radius:12px; }
+        .tip-box p { font-size:0.85rem; color:#2d6a4f; font-weight:600; }
+
+        .section-divider { text-align:center; margin:48px 0 32px; }
+        .section-divider span { display:inline-block; width:60px; height:3px; background:#2d6a4f; border-radius:4px; }
+
+        footer { border-top:1px solid rgba(0,0,0,0.05); padding:32px 0; text-align:center; font-size:0.85rem; color:#888; }
+
+        .lang-zh,.lang-en { transition:opacity 0.2s; }
+        .lang-hidden { display:none !important; }
+        .nav-links.open { display:flex; flex-direction:column; position:absolute; top:56px; left:0; right:0; background:rgba(255,255,255,0.98); backdrop-filter:blur(12px); padding:20px; gap:14px; border-bottom:1px solid rgba(0,0,0,0.04); }
+
+        @media (max-width: 768px) {
+            .nav-links { display:none; }
+            .mobile-menu-btn { display:block; }
+            .chibi-grid { grid-template-columns:repeat(2,1fr); }
+            .two-col { grid-template-columns:1fr; }
+            .section-title { font-size:1.6rem; }
+            section { padding:100px 0 60px; }
+        }
+        @media (max-width: 900px) { .chibi-grid { grid-template-columns:repeat(2,1fr); } }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <a href="index.html" class="nav-logo">🎾 AI Tennis Coach</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="index.html" class="lang-zh">首頁</a><a href="index.html" class="lang-en lang-hidden">Home</a></li>
+            <li><a href="about.html" class="lang-zh">關於</a><a href="about.html" class="lang-en lang-hidden">About</a></li>
+            <li><a href="training.html" class="lang-zh active">訓練</a><a href="training.html" class="lang-en lang-hidden active">Training</a></li>
+            <li><a href="gear.html" class="lang-zh">裝備</a><a href="gear.html" class="lang-en lang-hidden">Gear</a></li>
+            <li><a href="services.html" class="lang-zh">服務</a><a href="services.html" class="lang-en lang-hidden">AI</a></li>
+            <li><a href="contact.html" class="lang-zh">聯絡</a><a href="contact.html" class="lang-en lang-hidden">Contact</a></li>
+            <li><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-zh">📱 模擬器</a><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-en lang-hidden">📱 Simulator</a></li>
+            <li><button class="lang-toggle" id="langToggle">EN</button></li>
+        </ul>
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+    </div>
+</nav>
+
+<div class="subnav">
+    <div class="container">
+        <a href="#warmup" class="lang-zh active">🔥 熱身拉筋</a><a href="#warmup" class="lang-en lang-hidden active">🔥 Warm-up</a>
+        <span>|</span>
+        <a href="#drills" class="lang-zh">🎯 控球練習</a><a href="#drills" class="lang-en lang-hidden">🎯 Drills</a>
+    </div>
+</div>
+
+<section id="warmup" style="padding-top:140px;">
+    <div class="container">
+        <h2 class="section-title lang-zh">熱身 & 拉筋</h2>
+        <h2 class="section-title lang-en lang-hidden">Warm-up & Stretching</h2>
+        <p class="section-sub lang-zh">練習前後都要拉筋，避免受傷並提升表現</p>
+        <p class="section-sub lang-en lang-hidden">Stretch before and after every session to prevent injuries</p>
+
+        <div class="warmup-type lang-zh">🔥 練前動態熱身（Dynamic Warm-up）</div>
+        <div class="warmup-type lang-en lang-hidden">🔥 Dynamic Warm-up (Before Play)</div>
+        <div class="chibi-grid">
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm up l"></div><div class="chibi-arm up r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">開合跳</div><div class="chibi-label lang-en lang-hidden">Jumping Jacks</div>
+                <div class="chibi-desc lang-zh">提高心率，活化全身</div><div class="chibi-desc lang-en lang-hidden">Raise heart rate</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm side l"></div><div class="chibi-arm side r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">手臂畫圈</div><div class="chibi-label lang-en lang-hidden">Arm Circles</div>
+                <div class="chibi-desc lang-zh">活化肩膀關節</div><div class="chibi-desc lang-en lang-hidden">Loosen shoulders</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg kick l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">擺腿</div><div class="chibi-label lang-en lang-hidden">Leg Swings</div>
+                <div class="chibi-desc lang-zh">放鬆髖關節與大腿</div><div class="chibi-desc lang-en lang-hidden">Loosen hips</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg kick r"></div></div></div>
+                <div class="chibi-label lang-zh">弓箭步</div><div class="chibi-label lang-en lang-hidden">Walking Lunges</div>
+                <div class="chibi-desc lang-zh">伸展大腿與核心</div><div class="chibi-desc lang-en lang-hidden">Stretch thighs</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm up l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">高抬腿</div><div class="chibi-label lang-en lang-hidden">High Knees</div>
+                <div class="chibi-desc lang-zh">提升髖部靈活度</div><div class="chibi-desc lang-en lang-hidden">Hip mobility</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg kick l"></div><div class="chibi-leg kick r"></div></div></div>
+                <div class="chibi-label lang-zh">後踢腿</div><div class="chibi-label lang-en lang-hidden">Butt Kicks</div>
+                <div class="chibi-desc lang-zh">活化大腿後側</div><div class="chibi-desc lang-en lang-hidden">Hamstrings</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm side l"></div><div class="chibi-arm side r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">轉體運動</div><div class="chibi-label lang-en lang-hidden">Torso Twists</div>
+                <div class="chibi-desc lang-zh">放鬆腰部與脊椎</div><div class="chibi-desc lang-en lang-hidden">Loosen waist</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">腳踝繞環</div><div class="chibi-label lang-en lang-hidden">Ankle Rolls</div>
+                <div class="chibi-desc lang-zh">預防腳踝扭傷</div><div class="chibi-desc lang-en lang-hidden">Prevent injury</div>
+            </div>
+        </div>
+
+        <div class="warmup-type lang-zh" style="margin-top:20px;">🧊 練後靜態收操（Static Stretching）</div>
+        <div class="warmup-type lang-en lang-hidden" style="margin-top:20px;">🧊 Static Stretching (After Play)</div>
+        <div class="chibi-grid">
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm side l"></div><div class="chibi-arm r"></div><div class="chibi-leg kick l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">大腿前側拉伸</div><div class="chibi-label lang-en lang-hidden">Quad Stretch</div>
+                <div class="chibi-desc lang-zh">站姿單腳向後拉</div><div class="chibi-desc lang-en lang-hidden">Standing pull</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">大腿後側拉伸</div><div class="chibi-label lang-en lang-hidden">Hamstring Stretch</div>
+                <div class="chibi-desc lang-zh">坐姿前彎觸腳</div><div class="chibi-desc lang-en lang-hidden">Seated fold</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm side l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">肩膀拉伸</div><div class="chibi-label lang-en lang-hidden">Shoulder Stretch</div>
+                <div class="chibi-desc lang-zh">手臂橫跨胸前</div><div class="chibi-desc lang-en lang-hidden">Arm across chest</div>
+            </div>
+            <div class="chibi-card">
+                <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                <div class="chibi-label lang-zh">手腕拉伸</div><div class="chibi-label lang-en lang-hidden">Wrist Stretch</div>
+                <div class="chibi-desc lang-zh">手掌向後輕壓</div><div class="chibi-desc lang-en lang-hidden">Gentle push</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="section-divider"><span></span></div>
+
+<section id="drills" style="padding-top:80px;">
+    <div class="container">
+        <h2 class="section-title lang-zh">控球練習</h2>
+        <h2 class="section-title lang-en lang-hidden">Ball Control Drills</h2>
+        <p class="section-sub lang-zh">增強球感與控球能力，初學者必練</p>
+        <p class="section-sub lang-en lang-hidden">Build ball feel and control — essential for beginners</p>
+
+        <div class="two-col">
+            <div>
+                <div class="info-card" style="margin-bottom:20px;">
+                    <div class="icon">🤲</div>
+                    <h3 class="lang-zh">球感基礎練習</h3>
+                    <h3 class="lang-en lang-hidden">Basic Ball Feel</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>球拍顛球：</strong>拍面朝上，連續顛球，保持固定高度</li>
+                        <li class="lang-en lang-hidden"><strong>Racket Bounce:</strong> Keep ball up with racket face</li>
+                        <li class="lang-zh"><strong>拍球練習：</strong>向下拍球，感受拍線彈性</li>
+                        <li class="lang-en lang-hidden"><strong>Dribble:</strong> Bounce ball with racket</li>
+                        <li class="lang-zh"><strong>正反面交替顛球：</strong>正拍與反拍面輪流</li>
+                        <li class="lang-en lang-hidden"><strong>Alternate Bounce:</strong> Switch forehand & backhand</li>
+                        <li class="lang-zh"><strong>手掌顛球：</strong>用手掌手背交替顛球</li>
+                        <li class="lang-en lang-hidden"><strong>Hand Bounce:</strong> Use palm & back of hand</li>
+                    </ul>
+                </div>
+                <div class="info-card">
+                    <div class="icon">🎯</div>
+                    <h3 class="lang-zh">進階控球</h3>
+                    <h3 class="lang-en lang-hidden">Advanced Control</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>對牆練習：</strong>距牆 2-3 米，連續擊球不落地</li>
+                        <li class="lang-en lang-hidden"><strong>Wall Practice:</strong> 2-3m from wall</li>
+                        <li class="lang-zh"><strong>定點目標擊球：</strong>場上擺放標誌物，練習精準落點</li>
+                        <li class="lang-en lang-hidden"><strong>Target Hitting:</strong> Place cones for precision</li>
+                        <li class="lang-zh"><strong>雙人傳球：</strong>兩人間隔 3-5 米互傳，控制力道</li>
+                        <li class="lang-en lang-hidden"><strong>Partner Pass:</strong> 3-5m apart, control pace</li>
+                        <li class="lang-zh"><strong>反應抓球：</strong>同伴隨機放球，快速衝刺接住</li>
+                        <li class="lang-en lang-hidden"><strong>Reaction Catch:</strong> Sprint to catch dropped ball</li>
+                    </ul>
+                </div>
+            </div>
+            <div>
+                <div class="info-card">
+                    <div class="icon">🏃</div>
+                    <h3 class="lang-zh">動態控球練習</h3>
+                    <h3 class="lang-en lang-hidden">Dynamic Control Drills</h3>
+                    <ul>
+                        <li class="lang-zh"><strong>迷你網球：</strong>在發球區內對打，提升手感</li>
+                        <li class="lang-en lang-hidden"><strong>Mini Tennis:</strong> Play within service boxes</li>
+                        <li class="lang-zh"><strong>拋球接打：</strong>同伴拋球，練習上步迎擊</li>
+                        <li class="lang-en lang-hidden"><strong>Toss & Hit:</strong> Step into the shot</li>
+                        <li class="lang-zh"><strong>直線／斜線練習：</strong>設定目標區練習落點</li>
+                        <li class="lang-en lang-hidden"><strong>Cross/Down Line:</strong> Aim for target zones</li>
+                        <li class="lang-zh"><strong>跑動擊球：</strong>左右移動中擊球，模擬比賽</li>
+                        <li class="lang-en lang-hidden"><strong>On-the-Move:</strong> Hit while moving side to side</li>
+                    </ul>
+                    <div class="tip-box">
+                        <p class="lang-zh">💡 初學者 Tip：使用減壓球練習控球，彈跳較低、速度慢，更容易建立信心</p>
+                        <p class="lang-en lang-hidden">💡 Tip: Use pressureless balls for practice — lower bounce & speed build confidence</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p class="lang-zh">© 2026 AI Tennis Coach. 為初學者打造的免費 AI 網球教練</p>
+        <p class="lang-en lang-hidden">© 2026 AI Tennis Coach. Free AI coach for tennis beginners</p>
+    </div>
+</footer>
+
+<script>
+    const langToggle = document.getElementById('langToggle');
+    let currentLang = localStorage.getItem('aiTennisLang') || 'zh';
+    const zhElements = document.querySelectorAll('.lang-zh');
+    const enElements = document.querySelectorAll('.lang-en');
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('aiTennisLang', lang);
+        zhElements.forEach(el => { if (lang === 'zh') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        enElements.forEach(el => { if (lang === 'en') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        langToggle.textContent = lang === 'zh' ? 'EN' : '中文';
+        document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+    }
+    setLang(currentLang);
+    langToggle.addEventListener('click', () => { setLang(currentLang === 'zh' ? 'en' : 'zh'); });
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const navLinks = document.getElementById('navLinks');
+    mobileBtn.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+    navLinks.querySelectorAll('a').forEach(a => { a.addEventListener('click', () => navLinks.classList.remove('open')); });
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            const target = document.querySelector(a.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth' });
+        });
+    });
+</script>
+
+</body>
+</html>

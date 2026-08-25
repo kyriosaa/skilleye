@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Coach - Mobile Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #111;
+            color: #eee;
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 480px;
+            overflow-x: hidden;
+        }
+
+        /* Simulator Frame Column */
+        .simulator-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a1a;
+            padding: 24px;
+            position: relative;
+        }
+
+        /* Phone Container */
+        .phone-shell {
+            width: 375px;
+            height: 812px;
+            background: #000;
+            border-radius: 48px;
+            padding: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 4px #444;
+            position: relative;
+            transition: border-radius 0.3s, box-shadow 0.3s;
+        }
+
+        /* Dynamic Island / Notch */
+        .phone-notch {
+            position: absolute;
+            top: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 110px;
+            height: 28px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 101;
+            transition: all 0.3s;
+        }
+
+        /* Status Bar */
+        .phone-status-bar {
+            height: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            color: #000;
+            font-size: 0.75rem;
+            font-weight: 600;
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        /* Screen Frame */
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            border-radius: 38px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        /* Iframe */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+        }
+
+        /* Platform Switcher Controls */
+        .sim-controls {
+            margin-top: 24px;
+            display: flex;
+            gap: 12px;
+        }
+        .sim-btn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s;
+        }
+        .sim-btn.active {
+            background: #2d6a4f;
+            box-shadow: 0 0 12px rgba(45,106,79,0.4);
+        }
+        .sim-btn:active { transform: scale(0.98); }
+
+        /* Sidebar Info Column */
+        .sidebar {
+            background: #111;
+            padding: 40px 32px;
+            border-left: 1px solid #222;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .side-header h1 { font-size: 1.8rem; font-weight: 800; color: #74c69d; margin-bottom: 8px; }
+        .side-header p { font-size: 0.9rem; color: #aaa; }
+
+        .side-section h3 { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 12px; border-bottom: 2px solid #222; padding-bottom: 6px; }
+        .side-section p { font-size: 0.85rem; color: #bbb; line-height: 1.6; margin-bottom: 12px; }
+
+        /* Code block styles */
+        .code-box {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 16px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #a9b7c6;
+            overflow-x: auto;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+        .code-title { font-size:0.75rem; color:#888; margin-bottom:-8px; padding-left:4px; font-weight:600; }
+
+        /* Badge link */
+        .badge-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: #222; padding: 12px 20px; border-radius: 12px;
+            text-decoration: none; color: #fff; font-size: 0.85rem; font-weight: 600;
+            border: 1px solid #333; transition: background 0.2s;
+        }
+        .badge-link:hover { background: #2d2d2d; border-color: #2d6a4f; }
+
+        /* Responsive Layout */
+        @media (max-width: 1024px) {
+            body { grid-template-columns: 1fr; }
+            .sidebar { border-left: none; border-top: 1px solid #222; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Left: Interactive Phone Emulator -->
+<div class="simulator-area">
+    <div class="phone-shell" id="phoneShell">
+        <!-- Status Bar Wi-Fi, battery etc (White on Dark, Black on Light) -->
+        <div class="phone-status-bar" id="statusBar">
+            <span id="currentTime">09:41</span>
+            <span style="display:inline-flex; gap: 4px; align-items:center;">📶 📶 🔋 100%</span>
+        </div>
+        <div class="phone-notch" id="phoneNotch"></div>
+        <div class="phone-screen">
+            <iframe src="app.html" id="appIframe"></iframe>
+        </div>
+    </div>
+
+    <!-- Platform Toggle Controls -->
+    <div class="sim-controls">
+        <button class="sim-btn active" onclick="setPlatform('ios')"> iOS Simulator</button>
+        <button class="sim-btn" onclick="setPlatform('android')">🤖 Android Simulator</button>
+    </div>
+</div>
+
+<!-- Right: Documentation & Build Instructions -->
+<div class="sidebar">
+    <div class="side-header">
+        <h1>📱 行動 APP 模擬器</h1>
+        <p>Android & iOS 雙平台即時預覽與封裝說明</p>
+    </div>
+
+    <div class="side-section">
+        <h3>✨ 模擬器使用說明</h3>
+        <p>左側的模擬器中運作的是專為手機端打造的 <strong>App SPA (單頁應用程式)</strong>，體驗流暢、排版完美符合手指握持人體工學！</p>
+        <p><strong>💡 亮點體驗：</strong>切換至 <strong>[AI分析]</strong> 頁籤，點選「上傳影片」，將會觸發 <strong>AI 動作影像辨識與骨架偵測動畫</strong>，並在3秒後回傳詳細診斷報告！</p>
+        <a href="app.html" target="_blank" class="badge-link">🔗 手機全螢幕直接預覽</a>
+    </div>
+
+    <div class="side-section">
+        <h3>📦 封裝成真實手機 APP 指南</h3>
+        <p>我們採用全球最主流的網球 App 封裝技術 <strong>Capacitor</strong>，可以將此網頁直接打包為原生 <strong>iOS (Xcode)</strong> 與 <strong>Android (Android Studio)</strong> 專案。</p>
+        
+        <div class="code-title">步驟 1: 初始化行動端專案</div>
+        <div class="code-box">
+npm init -y
+npm install @capacitor/core @capacitor/cli
+npx cap init "AI Tennis Coach" "com.aitennis.coach" --web-dir="."
+        </div>
+
+        <div class="code-title">步驟 2: 加入 Android 與 iOS 原生專案</div>
+        <div class="code-box">
+npm install @capacitor/android @capacitor/ios
+npx cap add android
+npx cap add ios
+        </div>
+
+        <div class="code-title">步驟 3: 同步並編譯打包成 APK/IPA</div>
+        <div class="code-box">
+npx cap copy
+# 開啟 Android Studio 編譯
+npx cap open android
+# 開啟 Xcode 編譯
+npx cap open ios
+        </div>
+    </div>
+
+    <div class="side-section">
+        <h3>🏗️ 檔案結構與對應</h3>
+        <p>• <code>app.html</code>: 手機 App 主要畫面（包含底欄、AI動畫等）</p>
+        <p>• <code>simulator.html</code>: 本模擬器控制介面</p>
+        <p>• <code>index.html / about.html ...</code>: 寬螢幕/平板/電腦專用網頁</p>
+    </div>
+</div>
+
+<script>
+    // Live Clock Simulation
+    function updateClock() {
+        const now = new Date();
+        let hours = now.getHours();
+        let minutes = now.getMinutes();
+        hours = hours < 10 ? '0' + hours : hours;
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        document.getElementById('currentTime').textContent = hours + ':' + minutes;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Toggle iOS / Android phone frame styles
+    function setPlatform(platform) {
+        const shell = document.getElementById('phoneShell');
+        const notch = document.getElementById('phoneNotch');
+        const buttons = document.querySelectorAll('.sim-btn');
+
+        if(platform === 'ios') {
+            // iPhone Styling
+            shell.style.borderRadius = "48px";
+            shell.style.padding = "12px";
+            shell.style.boxShadow = "0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 4px #444";
+            notch.style.width = "110px";
+            notch.style.height = "28px";
+            notch.style.borderRadius = "20px";
+            notch.style.top = "22px";
+            notch.style.display = "block";
+            
+            buttons[0].classList.add('active');
+            buttons[1].classList.remove('active');
+        } else {
+            // Android Google Pixel Style (Centred punch hole camera)
+            shell.style.borderRadius = "36px";
+            shell.style.padding = "8px";
+            shell.style.boxShadow = "0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 4px #222";
+            notch.style.width = "12px";
+            notch.style.height = "12px";
+            notch.style.borderRadius = "50%;";
+            notch.style.top = "18px";
+            notch.style.display = "block";
+
+            buttons[0].classList.remove('active');
+            buttons[1].classList.add('active');
+        }
+    }
+</script>
+
+</body>
+</html>

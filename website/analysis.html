@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Coach - 影片分析</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; color:#1a1a2e; background:#fcfcfc; line-height:1.6; }
+        .container { max-width:1200px; margin:0 auto; padding:0 24px; }
+
+        nav {
+            position:fixed; top:0; width:100%; background:rgba(255,255,255,0.95);
+            backdrop-filter:blur(12px); border-bottom:1px solid rgba(0,0,0,0.04);
+            z-index:1000; padding:0 24px;
+        }
+        nav .container { display:flex; align-items:center; justify-content:space-between; height:56px; }
+        .nav-logo { font-weight:800; font-size:1.25rem; letter-spacing:-0.5px; color:#2d6a4f; text-decoration:none; white-space:nowrap; }
+        .nav-links { display:flex; gap:20px; list-style:none; align-items:center; }
+        .nav-links a { text-decoration:none; color:#1a1a2e; font-size:0.85rem; font-weight:500; transition:color 0.2s; white-space:nowrap; padding:4px 0; border-bottom:2px solid transparent; }
+        .nav-links a:hover { color:#2d6a4f; }
+        .nav-links a.active { color:#2d6a4f; border-bottom-color:#2d6a4f; }
+        .lang-toggle { background:#e8f5e9; border:none; padding:5px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; cursor:pointer; color:#2d6a4f; }
+        .lang-toggle:hover { background:#c8e6c9; }
+        .mobile-menu-btn { display:none; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#1a1a2e; }
+
+        section { padding:100px 0 80px; min-height:100vh; background:#f7faf8; }
+        .section-title { font-size:2.2rem; font-weight:800; margin-bottom:12px; letter-spacing:-1px; text-align:center; color:#2d6a4f; }
+        .section-sub { font-size:1.05rem; color:#555; max-width:600px; line-height:1.6; margin:0 auto 40px; text-align:center; }
+
+        /* Analysis Dashboard */
+        .analysis-dashboard { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-top:20px; }
+        .upload-section { background:#fff; border-radius:24px; padding:40px; box-shadow:0 8px 30px rgba(0,0,0,0.04); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; border:2px dashed #c8e6c9; min-height:400px; position:relative; overflow:hidden; }
+        .upload-zone-icon { font-size:4rem; margin-bottom:16px; transition:transform 0.2s; }
+        .upload-section:hover .upload-zone-icon { transform:scale(1.1); }
+        .upload-btn { background:#2d6a4f; color:#fff; border:none; padding:12px 28px; border-radius:30px; font-size:0.9rem; font-weight:600; cursor:pointer; margin-top:20px; box-shadow:0 4px 12px rgba(45,106,79,0.2); transition:background 0.2s; }
+        .upload-btn:hover { background:#1b4332; }
+
+        /* Report Section */
+        .report-section { background:#fff; border-radius:24px; padding:32px; box-shadow:0 8px 30px rgba(0,0,0,0.04); min-height:400px; display:flex; flex-direction:column; justify-content:center; }
+        .report-placeholder { text-align:center; color:#888; }
+        .report-placeholder-icon { font-size:3.5rem; margin-bottom:12px; }
+
+        /* Scanner line */
+        .scan-bar { position:absolute; left:0; right:0; top:0; height:4px; background:#74c69d; box-shadow:0 0 15px #74c69d; animation:scanAnimation 3s linear infinite; display:none; }
+        @keyframes scanAnimation { 0% { top:0; } 50% { top:100%; } 100% { top:0; } }
+
+        /* Loading wrapper */
+        .loading-overlay { display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+        .spinner { width:48px; height:48px; border:4px solid #f3f3f3; border-top-color:#2d6a4f; border-radius:50%; animation:spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* Report Results */
+        .report-results { display:none; animation:fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+        .metric-row { display:flex; justify-content:space-between; margin-bottom:24px; gap:20px; }
+        .metric-card { flex:1; background:#f0fdf4; border-radius:16px; padding:16px; text-align:center; border:1px solid #c8e6c9; }
+        .metric-value { font-size:1.8rem; font-weight:800; color:#2d6a4f; margin-top:4px; }
+        .metric-label { font-size:0.8rem; color:#666; font-weight:600; }
+
+        .deviation-table { width:100%; border-collapse:collapse; margin-top:16px; font-size:0.85rem; }
+        .deviation-table th, .deviation-table td { padding:10px 12px; text-align:left; border-bottom:1px solid #e8f5e9; }
+        .deviation-table th { background:#f7faf8; color:#2d6a4f; font-weight:700; }
+        .deviation-table tr:hover { background:#f9fbf9; }
+        .flagged-badge { background:#fff3cd; color:#d97706; padding:2px 8px; border-radius:100px; font-size:0.75rem; font-weight:700; }
+
+        .suggestions { margin-top:20px; }
+        .suggestions h4 { font-size:0.95rem; font-weight:700; margin-bottom:8px; color:#2d6a4f; }
+        .suggestions ul { list-style:none; padding-left:0; }
+        .suggestions li { font-size:0.85rem; color:#555; padding:4px 0; padding-left:18px; position:relative; }
+        .suggestions li::before { content:"⚠️"; position:absolute; left:0; }
+
+        .llm-card { background:#e8f5e9; border-radius:16px; padding:16px; margin-top:20px; border-left:4px solid #2d6a4f; }
+        .llm-card p { font-size:0.85rem; color:#1b4332; font-style:italic; }
+
+        footer { border-top:1px solid rgba(0,0,0,0.05); padding:32px 0; text-align:center; font-size:0.85rem; color:#888; }
+
+        .lang-zh,.lang-en { transition:opacity 0.2s; }
+        .lang-hidden { display:none !important; }
+        .nav-links.open { display:flex; flex-direction:column; position:absolute; top:56px; left:0; right:0; background:rgba(255,255,255,0.98); backdrop-filter:blur(12px); padding:20px; gap:14px; border-bottom:1px solid rgba(0,0,0,0.04); }
+
+        @media (max-width: 768px) {
+            .nav-links { display:none; }
+            .mobile-menu-btn { display:block; }
+            .analysis-dashboard { grid-template-columns:1fr; }
+            .section-title { font-size:1.8rem; }
+            section { padding:80px 0 60px; }
+        }
+        .blink { animation: blink 1.2s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.1; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <a href="index.html" class="nav-logo">🎾 AI Tennis Coach</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="index.html" class="lang-zh">首頁</a><a href="index.html" class="lang-en lang-hidden">Home</a></li>
+            <li><a href="about.html" class="lang-zh">關於</a><a href="about.html" class="lang-en lang-hidden">About</a></li>
+            <li><a href="training.html" class="lang-zh">訓練</a><a href="training.html" class="lang-en lang-hidden">Training</a></li>
+            <li><a href="gear.html" class="lang-zh">裝備</a><a href="gear.html" class="lang-en lang-hidden">Gear</a></li>
+            <li><a href="services.html" class="lang-zh active">服務</a><a href="services.html" class="lang-en lang-hidden active">AI</a></li>
+            <li><a href="contact.html" class="lang-zh">聯絡</a><a href="contact.html" class="lang-en lang-hidden">Contact</a></li>
+            <li><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-zh">📱 模擬器</a><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-en lang-hidden">📱 Simulator</a></li>
+            <li><button class="lang-toggle" id="langToggle">EN</button></li>
+        </ul>
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+    </div>
+</nav>
+
+<section>
+    <div class="container">
+        <h2 class="section-title lang-zh">AI 影片上傳與分析</h2>
+        <h2 class="section-title lang-en lang-hidden">AI Video Analysis</h2>
+        <p class="section-sub lang-zh">請上傳您的練習影片，我們將利用深度學科骨架技術，為您提供即時技術回饋</p>
+        <p class="section-sub lang-en lang-hidden">Upload your practice video to analyze your movement with our AI pose estimation models</p>
+
+        <div class="analysis-dashboard">
+            <!-- Left: Interactive Upload & Live Camera Card -->
+            <div class="upload-section" id="uploadZone" style="display:block; min-height:430px; position:relative; overflow:hidden; padding:24px;">
+                <div class="scan-bar" id="scanBar"></div>
+
+                <!-- Inner Mode Switcher Tabs -->
+                <div style="display:flex; justify-content:center; background:#e4e9e5; padding:3px; border-radius:12px; margin-bottom:24px;">
+                    <button id="tabUploadBtn" onclick="switchUploadMode('upload')" style="flex:1; border:none; background:#fff; color:#2d6a4f; padding:8px 0; font-size:0.8rem; font-weight:600; border-radius:9px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+                        <span class="lang-zh">📂 影片上傳</span><span class="lang-en lang-hidden">📂 Video Upload</span>
+                    </button>
+                    <button id="tabCameraBtn" onclick="switchUploadMode('camera')" style="flex:1; border:none; background:none; color:#666; padding:8px 0; font-size:0.8rem; font-weight:600; border-radius:9px; cursor:pointer;">
+                        <span class="lang-zh">📷 即時拍攝</span><span class="lang-en lang-hidden">📷 Live Camera</span>
+                    </button>
+                </div>
+                
+                <!-- Panel 1: Default Video File Upload -->
+                <div id="panelUploadMode" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:280px;">
+                    <div id="uploadDefault">
+                        <div class="upload-zone-icon" style="font-size:3.5rem;">📹</div>
+                        <h3 class="lang-zh">上傳影片檔案</h3>
+                        <h3 class="lang-en lang-hidden">Upload Video File</h3>
+                        <p class="lang-zh" style="font-size:0.8rem; color:#666; margin-top:6px;">支援 .mp4, .avi, .mov 格式影片</p>
+                        <p class="lang-en lang-hidden" style="font-size:0.8rem; color:#666; margin-top:6px;">Supports .mp4, .avi, .mov video files</p>
+                        
+                        <input type="file" id="videoFileInput" style="display:none;" accept="video/*" onchange="handleFileSelect()">
+                        <button class="upload-btn" onclick="document.getElementById('videoFileInput').click()" style="margin-top:14px;">
+                            <span class="lang-zh">選擇影片檔案</span>
+                            <span class="lang-en lang-hidden">Select Video File</span>
+                        </button>
+                    </div>
+
+                    <!-- Selected file preview & analysis button -->
+                    <div id="fileSelected" style="display:none; text-align:center;">
+                        <div class="upload-zone-icon" style="color:#2d6a4f; font-size:3.5rem;">📂</div>
+                        <h3 id="selectedFileName" style="font-size:0.95rem; margin-bottom:12px; font-weight:700;"></h3>
+                        
+                        <div style="display:flex; justify-content:center; gap:12px; margin-top:14px;">
+                            <button class="upload-btn" style="background:#888; margin-top:0;" onclick="resetUploader()">
+                                <span class="lang-zh">重新選擇</span>
+                                <span class="lang-en lang-hidden">Reselect</span>
+                            </button>
+                            <button class="upload-btn" onclick="startAnalysis()" style="background:#74c69d; color:#1a1a2e; margin-top:0; box-shadow:0 4px 12px rgba(116,198,157,0.35);">
+                                <span class="lang-zh">開始 AI 分析 🤖</span>
+                                <span class="lang-en lang-hidden">Start AI Analysis 🤖</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Live Camera View -->
+                <div id="panelCameraMode" style="display:none; flex-direction:column; align-items:center; justify-content:center; min-height:280px; position:relative;">
+                    <div id="cameraPrompt" style="text-align:center;">
+                        <div class="upload-zone-icon" style="font-size:3.5rem;">📷</div>
+                        <h3 class="lang-zh">使用前鏡頭即時拍攝</h3>
+                        <h3 class="lang-en lang-hidden">Live Front Camera</h3>
+                        <p class="lang-zh" style="font-size:0.8rem; color:#666; margin-top:6px;">使用您電腦或手機的前置鏡頭，進行即時動作偵測</p>
+                        <p class="lang-en lang-hidden" style="font-size:0.8rem; color:#666; margin-top:6px;">Use your front camera for real-time stance analysis</p>
+                        
+                        <button class="upload-btn" onclick="startWebcam()" style="margin-top:14px;">
+                            <span class="lang-zh">開啟攝影機 🎥</span>
+                            <span class="lang-en lang-hidden">Open Camera 🎥</span>
+                        </button>
+                    </div>
+
+                    <div id="cameraStreamContainer" style="display:none; width:100%; text-align:center; position:relative;">
+                        <!-- Webcam Feed Video element (hidden while the skeleton overlay canvas is active) -->
+                        <video id="webcamFeed" autoplay playsinline muted style="width:100%; max-height:700px; border-radius:12px; background:#000; transform: scaleX(-1); object-fit:cover; margin-bottom:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></video>
+                        <div id="recIndicator" style="display:none; position:absolute; top:20px; right:20px; width:15px; height:15px; background:red; border-radius:50%; z-index:10;" class="blink"></div>
+                        <canvas id="webcamOverlay" style="display:none; width:100%; max-height:700px; border-radius:12px; background:#000; margin-bottom:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></canvas>
+                        
+                        <div style="margin-bottom:15px; display:flex; justify-content:center; gap:20px; align-items:center;">
+                            <label style="font-size:0.85rem; font-weight:600; color:#2d6a4f; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                <input type="radio" name="sensorMode" value="without" checked onchange="toggleSensorMode()" style="accent-color:#2d6a4f;">
+                                <span class="lang-zh">📷 無感測器</span><span class="lang-en lang-hidden">📷 No Sensor</span>
+                            </label>
+                            <label style="font-size:0.85rem; font-weight:600; color:#2d6a4f; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                <input type="radio" name="sensorMode" value="with" onchange="toggleSensorMode()" style="accent-color:#2d6a4f;">
+                                <span class="lang-zh">🔌 搭配感測器</span><span class="lang-en lang-hidden">🔌 With Sensor</span>
+                            </label>
+                        </div>
+                        <div id="strokeSelectContainer" style="margin-bottom:10px;">
+                            <select id="strokeSelect" style="padding:8px 16px; border-radius:20px; border:1px solid #c8e6c9; background:#f0fdf4; color:#2d6a4f; font-weight:600; cursor:pointer;">
+                                <option value="forehand">正手拍 (Forehand)</option>
+                                <option value="backhand">反手拍 (Backhand)</option>
+                                <option value="serve">發球 (Serve)</option>
+                                <option value="smash">高壓殺球 (Smash)</option>
+                                <option value="forehand_volley">正手截擊 (Forehand Volley)</option>
+                                <option value="backhand_volley">反手截擊 (Backhand Volley)</option>
+                            </select>
+                        </div>
+                        <p id="overlayStatus" style="font-size:0.75rem; color:#2d6a4f; margin:0 0 8px;"></p>
+                        <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+                            <button class="upload-btn" style="background:#888; margin-top:0;" onclick="stopWebcam()">
+                                <span class="lang-zh">關閉鏡頭</span>
+                                <span class="lang-en lang-hidden">Close</span>
+                            </button>
+                        </div>
+                        <div id="gestureHint" style="margin-top:10px; padding:10px 14px; background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; font-size:0.8rem; color:#9a3412; text-align:center;">
+                            <span id="hintText" class="lang-zh">✋ 比出「五」開始錄影：您可以進行任何揮拍動作，系統將自動偵測。</span>
+                            <span class="lang-en lang-hidden">✋ Show five to start: Perform any stroke and AI will detect it.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scanner loading view -->
+                <div class="loading-overlay" id="loadingOverlay" style="display:none; min-height:280px; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+                    <div class="spinner" style="margin-bottom: 20px;"></div>
+                    <p class="lang-zh" style="font-weight:700; color:#2d6a4f;">AI 正在分析動作與運動力鏈...</p>
+                    <p class="lang-en lang-hidden" style="font-weight:700; color:#2d6a4f;">AI is extracting skeleton & analyzing postures...</p>
+                </div>
+            </div>
+
+            <!-- Right: Live AI Diagnostic Report -->
+            <div class="report-section" id="reportSection">
+                <div class="report-placeholder" id="reportPlaceholder">
+                    <div class="report-placeholder-icon">📊</div>
+                    <h3 class="lang-zh">等待分析報告...</h3>
+                    <h3 class="lang-en lang-hidden">Awaiting Analysis...</h3>
+                    <p class="lang-zh" style="font-size:0.85rem; color:#888; margin-top:8px;">請在上傳影片並點擊「開始 AI 分析」後，檢視您的動作診斷報告</p>
+                    <p class="lang-en lang-hidden" style="font-size:0.85rem; color:#888; margin-top:8px;">Please upload a video and click "Start AI Analysis" to view reports</p>
+                </div>
+
+                <!-- Actual Diagnostic Report (populated by the real model at runtime) -->
+                <div class="report-results" id="reportResults">
+                    <h3 class="lang-zh" style="color:#2d6a4f; margin-bottom:16px;">📊 AI 擊球動作技術診斷報告</h3>
+                    <h3 class="lang-en lang-hidden" style="color:#2d6a4f; margin-bottom:16px;">📊 AI Technical Diagnostic Report</h3>
+                    <p class="lang-zh" style="font-size:0.85rem; color:#888;">分析完成後，將在此顯示由您的 RTMPose + ST-GCN 模型所產生的真實診斷結果。</p>
+                    <p class="lang-en lang-hidden" style="font-size:0.85rem; color:#888;">Your real RTMPose + ST-GCN model diagnosis will appear here after analysis.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p class="lang-zh">© 2026 AI Tennis Coach. 為初學者打造的免費 AI 網球教練</p>
+        <p class="lang-en lang-hidden">© 2026 AI Tennis Coach. Free AI coach for tennis beginners</p>
+    </div>
+</footer>
+
+<script>
+    const langToggle = document.getElementById('langToggle');
+    let currentLang = localStorage.getItem('aiTennisLang') || 'zh';
+    const zhElements = document.querySelectorAll('.lang-zh');
+    const enElements = document.querySelectorAll('.lang-en');
+    
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('aiTennisLang', lang);
+        document.querySelectorAll('.lang-zh').forEach(el => { if (lang === 'zh') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        document.querySelectorAll('.lang-en').forEach(el => { if (lang === 'en') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        langToggle.textContent = lang === 'zh' ? 'EN' : '中文';
+        document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+    }
+    setLang(currentLang);
+    langToggle.addEventListener('click', () => { setLang(currentLang === 'zh' ? 'en' : 'zh'); });
+
+    // ---- Model backend (SkillEye FastAPI server) ----
+    const API_BASE = "http://127.0.0.1:8000";
+    // COCO-17 skeleton edges, matching the ST-GCN model (stgcn_model.py COCO17_EDGES)
+    const COCO_EDGES = [[0,1],[0,2],[1,3],[2,4],[5,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16],[0,5],[0,6]];
+
+    // ---- Live overlay state ----
+    let overlayTimer = null;
+    let overlayBusy = false;
+    const CAPTURE_WIDTH = 640;
+    const captureCanvas = document.createElement('canvas');
+    const captureCtx = captureCanvas.getContext('2d');
+
+    // Check URL parameters to see if we should automatically open in Camera Mode
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'camera') {
+            switchUploadMode('camera');
+            startWebcam(); // Automatically prompt to open the front camera!
+        }
+    });
+
+    // Mode Switcher between Upload and Camera
+    let activeMode = 'upload';
+    let webcamStream = null;
+
+    function switchUploadMode(mode) {
+        if (mode === activeMode) return;
+        activeMode = mode;
+
+        // Stop camera if running
+        stopWebcam();
+
+        const tabUpload = document.getElementById('tabUploadBtn');
+        const tabCamera = document.getElementById('tabCameraBtn');
+        const panelUpload = document.getElementById('panelUploadMode');
+        const panelCamera = document.getElementById('panelCameraMode');
+
+        if (mode === 'upload') {
+            tabUpload.style.background = '#fff';
+            tabUpload.style.color = '#2d6a4f';
+            tabUpload.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+            tabCamera.style.background = 'none';
+            tabCamera.style.color = '#666';
+            tabCamera.style.boxShadow = 'none';
+
+            panelUpload.style.display = 'flex';
+            panelCamera.style.display = 'none';
+        } else {
+            tabCamera.style.background = '#fff';
+            tabCamera.style.color = '#2d6a4f';
+            tabCamera.style.boxShadow = '0 2px 6px rgba(0,0,0,0.05)';
+            tabUpload.style.background = 'none';
+            tabUpload.style.color = '#666';
+            tabUpload.style.boxShadow = 'none';
+
+            panelUpload.style.display = 'none';
+            panelCamera.style.display = 'flex';
+        }
+        
+        // Reset report and outputs
+        document.getElementById('reportResults').style.display = 'none';
+        document.getElementById('reportPlaceholder').style.display = 'block';
+    }
+
+    // File Selector logic
+    function handleFileSelect() {
+        const fileInput = document.getElementById('videoFileInput');
+        const file = fileInput.files[0];
+        if(!file) return;
+
+        document.getElementById('selectedFileName').textContent = "📂 " + file.name;
+        document.getElementById('uploadDefault').style.display = 'none';
+        document.getElementById('fileSelected').style.display = 'block';
+    }
+
+    function resetUploader() {
+        document.getElementById('videoFileInput').value = "";
+        document.getElementById('fileSelected').style.display = 'none';
+        document.getElementById('uploadDefault').style.display = 'block';
+        document.getElementById('reportResults').style.display = 'none';
+        document.getElementById('reportPlaceholder').style.display = 'block';
+    }
+
+    // Webcam integration (uses user/front camera)
+    async function startWebcam() {
+        try {
+            const constraints = {
+                video: { facingMode: "user" }, // Targets front-facing camera on phones
+                audio: false
+            };
+            webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const videoElement = document.getElementById('webcamFeed');
+            videoElement.srcObject = webcamStream;
+            
+            document.getElementById('cameraPrompt').style.display = 'none';
+            document.getElementById('cameraStreamContainer').style.display = 'block';
+            
+            // Automatically start palm gesture recording detection
+            startGestureRecording();
+        } catch (err) {
+            alert("無法開啟攝影機 / Camera access denied: " + err.message);
+        }
+    }
+
+    function stopWebcam() {
+        stopOverlay();
+        stopGestureRecording();
+        if (webcamStream) {
+            webcamStream.getTracks().forEach(track => track.stop());
+            webcamStream = null;
+        }
+        document.getElementById('cameraStreamContainer').style.display = 'none';
+        document.getElementById('cameraPrompt').style.display = 'block';
+    }
+
+    // ---- Live per-frame skeleton overlay (RTMPose via /analyze_frame) ----
+    function stopOverlay() {
+        if (overlayTimer !== null) {
+            clearTimeout(overlayTimer);
+            overlayTimer = null;
+        }
+        overlayBusy = false;
+        const overlay = document.getElementById('webcamOverlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+        }
+        const video = document.getElementById('webcamFeed');
+        if (video) video.style.display = 'block';
+        const status = document.getElementById('overlayStatus');
+        if (status) status.textContent = '';
+    }
+
+    function toggleOverlay() {
+        if (overlayTimer !== null) { stopOverlay(); return; }
+        if (!webcamStream) return;
+        const video = document.getElementById('webcamFeed');
+        const overlay = document.getElementById('webcamOverlay');
+        overlay.style.display = 'block';
+        video.style.display = 'none';
+        const status = document.getElementById('overlayStatus');
+        status.textContent = currentLang === 'zh' ? '🦴 正在以您的模型即時偵測骨架...' : '🦴 Live skeleton detection using your model...';
+        overlayTimer = setTimeout(tickOverlay, 100);
+    }
+
+    function pickBestPerson(persons) {
+        let best = null, bestScore = -1;
+        (persons || []).forEach(p => {
+            let s = 0;
+            p.forEach(j => { if (j.score >= 0.3) s += j.score; });
+            if (s > bestScore) { bestScore = s; best = p; }
+        });
+        return bestScore > 0 ? best : null;
+    }
+
+    function drawSkeleton(ctx, pts) {
+        const lineW = Math.max(2, Math.round(ctx.canvas.width / 320));
+        ctx.strokeStyle = '#2d6a4f';
+        ctx.lineWidth = lineW;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        COCO_EDGES.forEach(([a, b]) => {
+            if (pts[a].s >= 0.3 && pts[b].s >= 0.3) {
+                ctx.beginPath();
+                ctx.moveTo(pts[a].x, pts[a].y);
+                ctx.lineTo(pts[b].x, pts[b].y);
+                ctx.stroke();
+            }
+        });
+        ctx.fillStyle = '#74c69d';
+        pts.forEach(j => {
+            if (j.s >= 0.3) {
+                ctx.beginPath();
+                ctx.arc(j.x, j.y, Math.max(3, lineW * 1.2), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+    }
+
+    function drawOverlayFrame(video, persons, cw, ch) {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const scale = vw / cw;
+        const overlay = document.getElementById('webcamOverlay');
+        overlay.width = vw; overlay.height = vh;
+        const ctx = overlay.getContext('2d');
+        ctx.save();
+        ctx.translate(vw, 0); ctx.scale(-1, 1); // mirror so it matches the selfie view
+        ctx.drawImage(video, 0, 0, vw, vh);
+        const best = pickBestPerson(persons);
+        if (best) {
+            const pts = best.map(j => ({ x: j.x * scale, y: j.y * scale, s: j.score }));
+            drawSkeleton(ctx, pts);
+        }
+        ctx.restore();
+    }
+
+    async function tickOverlay() {
+        if (overlayTimer === null) return;
+        const video = document.getElementById('webcamFeed');
+        if (!video || !webcamStream || video.readyState < 2 || video.videoWidth === 0) {
+            overlayTimer = setTimeout(tickOverlay, 200);
+            return;
+        }
+        if (overlayBusy) { overlayTimer = setTimeout(tickOverlay, 150); return; }
+        overlayBusy = true;
+
+        const cw = CAPTURE_WIDTH;
+        const ch = Math.round(video.videoHeight * cw / video.videoWidth);
+        captureCanvas.width = cw; captureCanvas.height = ch;
+        captureCtx.drawImage(video, 0, 0, cw, ch);
+
+        try {
+            const blob = await new Promise(res => captureCanvas.toBlob(res, 'image/jpeg', 0.7));
+            const fd = new FormData();
+            fd.append('image', blob, 'frame.jpg');
+            const resp = await fetch(API_BASE + '/analyze_frame', { method: 'POST', body: fd });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            drawOverlayFrame(video, data.persons, cw, ch);
+        } catch (e) {
+            const overlay = document.getElementById('webcamOverlay');
+            const vw = video.videoWidth, vh = video.videoHeight;
+            overlay.width = vw; overlay.height = vh;
+            const ctx = overlay.getContext('2d');
+            ctx.save();
+            ctx.translate(vw, 0); ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, vw, vh);
+            ctx.restore();
+            const status = document.getElementById('overlayStatus');
+            status.textContent = currentLang === 'zh' ? '⚠️ 無法連線模型伺服器 (127.0.0.1:8000)' : '⚠️ Cannot reach model server (127.0.0.1:8000)';
+        }
+        overlayBusy = false;
+        overlayTimer = setTimeout(tickOverlay, 150);
+    }
+
+    // Capture one frame as a base64 JPEG (codec-independent clip for /analyze_frames)
+    function captureFrameDataURL() {
+        const video = document.getElementById('webcamFeed');
+        const w = CAPTURE_WIDTH;
+        const h = Math.round(video.videoHeight * w / video.videoWidth);
+        captureCanvas.width = w; captureCanvas.height = h;
+        captureCtx.drawImage(video, 0, 0, w, h);
+        return captureCanvas.toDataURL('image/jpeg', 0.7);
+    }
+
+    // ---- Gesture-controlled recording: show open palm (five) to start,
+    //      show open palm again to stop and auto-analyze ----
+    let gestureRecording = false;   // currently recording frames?
+    let gestureFrames = [];         // collected frame data-URLs
+    let gestureTimer = null;
+    let gestureBusy = false;
+    let gestureArmed = true;        // re-armed after the hand drops so a held-up palm isn't double-counted
+    let gestureWasFive = false;
+
+    function startGestureRecording() {
+        stopOverlay();
+        if (!webcamStream) { alert(currentLang === 'zh' ? '請先開啟攝影機' : 'Please open the camera first'); return; }
+        gestureRecording = false;
+        gestureFrames = [];
+        gestureArmed = true;
+        gestureWasFive = false;
+        document.getElementById('gestureHint').style.display = 'block';
+        const status = document.getElementById('overlayStatus');
+        status.textContent = currentLang === 'zh' ? '✋ 比「五」開始錄影…' : '✋ Show five to start recording…';
+        if (gestureTimer === null) gestureTimer = setTimeout(tickGesture, 200);
+    }
+
+    function stopGestureRecording() {
+        if (gestureTimer !== null) { clearTimeout(gestureTimer); gestureTimer = null; }
+        gestureBusy = false;
+        const hint = document.getElementById('gestureHint');
+        if (hint) hint.style.display = 'none';
+    }
+
+    async function tickGesture() {
+        if (gestureTimer === null) return;
+        const video = document.getElementById('webcamFeed');
+        if (!video || !webcamStream || video.readyState < 2 || video.videoWidth === 0) {
+            gestureTimer = setTimeout(tickGesture, 200);
+            return;
+        }
+        if (gestureBusy) { gestureTimer = setTimeout(tickGesture, 200); return; }
+        gestureBusy = true;
+
+        const cw = CAPTURE_WIDTH;
+        const ch = Math.round(video.videoHeight * cw / video.videoWidth);
+        captureCanvas.width = cw; captureCanvas.height = ch;
+        captureCtx.drawImage(video, 0, 0, cw, ch);
+        const dataUrl = captureFrameDataURL();
+
+        try {
+            const blob = await new Promise(res => captureCanvas.toBlob(res, 'image/jpeg', 0.7));
+            const fd = new FormData();
+            fd.append('image', blob, 'frame.jpg');
+            const resp = await fetch(API_BASE + '/detect_gesture', { method: 'POST', body: fd });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            const five = !!data.five;
+            const status = document.getElementById('overlayStatus');
+
+            if (five && gestureArmed) {
+                gestureArmed = false;
+                if (!gestureRecording) {
+                    // start recording
+                    gestureRecording = true;
+                    gestureFrames = [dataUrl];
+                    document.getElementById('recIndicator').style.display = 'block';
+                    status.textContent = currentLang === 'zh'
+                        ? '🔴 錄影中… 再次比「五」停止並分析'
+                        : '🔴 Recording… show five again to stop & analyze';
+                } else {
+                    // stop recording -> auto-analyze
+                    gestureRecording = false;
+                    document.getElementById('recIndicator').style.display = 'none';
+                    const frames = gestureFrames.slice();
+                    stopGestureRecording();
+                    analyzeCameraFrames(frames);
+                    return;
+                }
+            } else {
+                if (!five) {
+                    // hand dropped: allow the next five to trigger again
+                    if (!gestureWasFive) {
+                        gestureArmed = true;
+                    }
+                }
+                if (gestureRecording) {
+                    gestureFrames.push(dataUrl);
+                }
+            }
+            gestureWasFive = five;
+        } catch (e) {
+            const status = document.getElementById('overlayStatus');
+            status.textContent = currentLang === 'zh'
+                ? '⚠️ 無法連線模型伺服器 (127.0.0.1:8000)'
+                : '⚠️ Cannot reach model server (127.0.0.1:8000)';
+        }
+        gestureBusy = false;
+        if (gestureTimer !== null) gestureTimer = setTimeout(tickGesture, 200);
+    }
+
+    function toggleSensorMode() {
+        const mode = document.querySelector('input[name="sensorMode"]:checked').value;
+        const container = document.getElementById('strokeSelectContainer');
+        const hintZh = document.getElementById('hintText');
+        
+        if (mode === 'with') {
+            container.style.display = 'none';
+            hintZh.textContent = '✋ 比出「五」開始錄影：您可以進行任何揮拍動作，系統將自動偵測。';
+        } else {
+            container.style.display = 'block';
+            hintZh.textContent = '✋ 比出「五」開始錄影：請在上方選單選擇動作，再次比「五」停止錄影並分析。';
+        }
+    }
+
+    function analyzeCameraFrames(frames) {
+        if (!frames || frames.length < 5) {
+            const status = document.getElementById('overlayStatus');
+            status.textContent = currentLang === 'zh'
+                ? '⚠️ 錄影時間太短，請再次比「五」開始錄影'
+                : '⚠️ Recording too short, show five again to restart';
+            startGestureRecording();
+            return;
+        }
+
+        // 取得感測器模式與動作
+        const sensorMode = document.querySelector('input[name="sensorMode"]:checked').value;
+        const bodyData = { frames: frames, fps: 8 };
+        if (sensorMode === 'without') {
+            bodyData.stroke = document.getElementById('strokeSelect').value;
+        }
+
+        document.getElementById('scanBar').style.display = 'block';
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        document.getElementById('reportResults').style.display = 'none';
+        document.getElementById('reportPlaceholder').style.display = 'block';
+
+        (async () => {
+            try {
+                const response = await fetch(API_BASE + "/analyze_frames", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(bodyData) // 使用新的 bodyData
+                });
+                if (!response.ok) {
+                    const detail = await response.json().then(j => j.detail || response.status).catch(() => response.status);
+                    throw new Error(detail);
+                }
+                renderRealReport(await response.json());
+            } catch (err) {
+                console.warn("Analysis failed:", err);
+                showServerError(err);
+            }
+        })();
+    }
+
+    async function startAnalysis() {
+        stopOverlay();
+
+        // Show loading animations
+        if (activeMode === 'upload') {
+            document.getElementById('panelUploadMode').style.display = 'none';
+        } else {
+            document.getElementById('panelCameraMode').style.display = 'none';
+        }
+
+        document.getElementById('scanBar').style.display = 'block';
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        document.getElementById('reportResults').style.display = 'none';
+        document.getElementById('reportPlaceholder').style.display = 'block';
+
+        try {
+            if (activeMode === 'upload') {
+                const file = document.getElementById('videoFileInput').files[0];
+                if (!file) throw new Error('No video selected');
+                const formData = new FormData();
+                formData.append("file", file);
+                const response = await fetch(API_BASE + "/analyze", { method: "POST", body: formData });
+                if (!response.ok) {
+                    const detail = await response.json().then(j => j.detail || response.status).catch(() => response.status);
+                    throw new Error(detail);
+                }
+                renderRealReport(await response.json());
+            } else {
+                // Record ~3.5s of webcam frames and send them to the real model (codec-independent)
+                const frames = [];
+                for (let i = 0; i < 14; i++) {
+                    frames.push(captureFrameDataURL());
+                    await new Promise(r => setTimeout(r, 250));
+                }
+                const response = await fetch(API_BASE + "/analyze_frames", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ frames: frames, fps: 8 })
+                });
+                if (!response.ok) {
+                    const detail = await response.json().then(j => j.detail || response.status).catch(() => response.status);
+                    throw new Error(detail);
+                }
+                renderRealReport(await response.json());
+            }
+        } catch (err) {
+            console.warn("Analysis failed:", err);
+            showServerError(err);
+        }
+    }
+
+    function showServerError(err) {
+        stopWebcam();
+        document.getElementById('scanBar').style.display = 'none';
+        document.getElementById('loadingOverlay').style.display = 'none';
+        if (activeMode === 'upload') {
+            document.getElementById('panelUploadMode').style.display = 'flex';
+        } else {
+            document.getElementById('panelCameraMode').style.display = 'flex';
+        }
+
+        const errMsg = err ? String(err.message || err) : '';
+        const isServerResponse = errMsg.includes("動作幅度") || errMsg.includes("動作不明確") || errMsg.includes("Visible in too few frames") || errMsg.includes("too few frames");
+
+        const reportResults = document.getElementById('reportResults');
+        
+        if (isServerResponse) {
+            reportResults.innerHTML = `
+                <h3 class="lang-zh" style="color:#e67e22; margin-bottom:12px;">⚠️ 動作未通過 AI 分析判定</h3>
+                <h3 class="lang-en lang-hidden" style="color:#e67e22; margin-bottom:12px;">⚠️ Motion Rejected by AI</h3>
+                <p class="lang-zh" style="font-size:0.85rem; color:#666; line-height: 1.5;"><strong>原因：</strong>${errMsg.replace('Error: ', '')}<br><br>系統現在實施了嚴格的網球揮拍特徵過濾，排除無關的日常晃動（如搖頭晃腦或輕微手抖）。請確保您比出五開始錄製後，<strong>進行了標準、完整且具有瞬間加速爆發力的網球揮拍動作</strong>，再比五停止分析。</p>
+                <p class="lang-en lang-hidden" style="font-size:0.85rem; color:#666; line-height: 1.5;"><strong>Reason:</strong> ${errMsg.replace('Error: ', '')}<br><br>The system now enforces strict tennis stroke filters to reject unrelated everyday motions (like head-shaking or minor hand jitters). Please ensure that after starting with a five-gesture, you <strong>perform a standard, complete, and explosive tennis swing</strong> before showing five again to stop.</p>
+            `;
+        } else {
+            reportResults.innerHTML = `
+                <h3 class="lang-zh" style="color:#c0392b; margin-bottom:12px;">⚠️ 無法取得 AI 分析結果</h3>
+                <h3 class="lang-en lang-hidden" style="color:#c0392b; margin-bottom:12px;">⚠️ AI Analysis Unavailable</h3>
+                <p class="lang-zh" style="font-size:0.85rem; color:#666;">您的模型伺服器尚未啟動或連線失敗。請先在本機執行以下指令，再重新分析：<br><code style="background:#f0f3f1; padding:2px 6px; border-radius:6px;">conda activate Tennis_pose</code><br><code style="background:#f0f3f1; padding:2px 6px; border-radius:6px;">python SkillEye\\ml\\skilleye\\server.py</code></p>
+                <p class="lang-en lang-hidden" style="font-size:0.85rem; color:#666;">Your model server is not running. Start it locally, then retry:<br><code style="background:#f0f3f1; padding:2px 6px; border-radius:6px;">conda activate Tennis_pose</code><br><code style="background:#f0f3f1; padding:2px 6px; border-radius:6px;">python SkillEye\\ml\\skilleye\\server.py</code></p>
+                <p style="font-size:0.8rem; color:#888; margin-top:8px;">${errMsg}</p>
+            `;
+        }
+        document.getElementById('reportPlaceholder').style.display = 'none';
+        reportResults.style.display = 'block';
+        setLang(currentLang);
+    }
+
+    const PHASE_MAP = {
+        backswing: ['引拍', 'Backswing'],
+        contact: ['擊球瞬間', 'Contact'],
+        follow_through: ['隨球期', 'Follow-through']
+    };
+    const JOINT_MAP = {
+        left_elbow: ['左肘關節 (L-Elbow)', 'L-Elbow'],
+        right_elbow: ['右肘關節 (R-Elbow)', 'R-Elbow'],
+        left_knee: ['左膝關節 (L-Knee)', 'L-Knee'],
+        right_knee: ['右膝關節 (R-Knee)', 'R-Knee'],
+        trunk_rotation: ['軀幹旋轉 (Trunk Rotation)', 'Trunk Rotation']
+    };
+    function displayPair(key, map) { return map[key] || [key, key]; }
+
+    function renderRealReport(data) {
+        stopWebcam();
+
+        document.getElementById('scanBar').style.display = 'none';
+        document.getElementById('loadingOverlay').style.display = 'none';
+        if (activeMode === 'upload') {
+            document.getElementById('panelUploadMode').style.display = 'flex';
+        } else {
+            document.getElementById('panelCameraMode').style.display = 'flex';
+        }
+
+        const reportResults = document.getElementById('reportResults');
+
+        let tableRowsHtml = "";
+        if (data.table && data.table.length > 0) {
+            data.table.forEach(row => {
+                const [ph_zh, ph_en] = displayPair(row.phase, PHASE_MAP);
+                const [jt_zh, jt_en] = displayPair(row.joint, JOINT_MAP);
+                let valueCell = "N/A", zCell = "N/A", statusCell = "N/A";
+                if (row.value !== undefined && row.value !== null) valueCell = Number(row.value).toFixed(3);
+                if (row.z !== undefined && row.z !== null) {
+                    zCell = (row.z > 0 ? "+" : "") + Number(row.z).toFixed(2);
+                    statusCell = row.flagged
+                        ? '<span class="flagged-badge">⚠️ 有偏差 / Flagged</span>'
+                        : '<span style="color:#2d6a4f;">✓ 正常 / OK</span>';
+                } else if (row.note) {
+                    zCell = row.note;
+                    statusCell = '<span style="color:#888;">— 模板不足 / Insufficient</span>';
+                }
+                tableRowsHtml += `
+                    <tr>
+                        <td class="lang-zh">${ph_zh}</td><td class="lang-en lang-hidden">${ph_en}</td>
+                        <td class="lang-zh">${jt_zh}</td><td class="lang-en lang-hidden">${jt_en}</td>
+                        <td>${valueCell}</td>
+                        <td>${zCell}</td>
+                        <td>${statusCell}</td>
+                    </tr>`;
+            });
+        } else {
+            tableRowsHtml = '<tr><td colspan="7" style="text-align:center;">無顯著偏移 / Perfect Form!</td></tr>';
+        }
+
+        let suggestionsHtml = "";
+        if (data.suggestions && data.suggestions.length > 0) {
+            data.suggestions.forEach(s => { suggestionsHtml += `<li>${s}</li>`; });
+        } else {
+            suggestionsHtml = '<li>姿勢非常標準，繼續保持！/ Form looks great, keep it up!</li>';
+        }
+
+        reportResults.innerHTML = `
+            <h3 class="lang-zh" style="color:#2d6a4f; margin-bottom:16px;">💡 改進建議（Actionable Tips）</h3>
+            <h3 class="lang-en lang-hidden" style="color:#2d6a4f; margin-bottom:16px;">💡 Actionable Tips</h3>
+            <div class="suggestions">
+                <ul>
+                    ${suggestionsHtml}
+                </ul>
+            </div>
+        `;
+
+        document.getElementById('reportPlaceholder').style.display = 'none';
+        reportResults.style.display = 'block';
+        setLang(currentLang);
+    }
+
+    // Mobile menu toggle
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const navLinks = document.getElementById('navLinks');
+    mobileBtn.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+    navLinks.querySelectorAll('a').forEach(a => { a.addEventListener('click', () => navLinks.classList.remove('open')); });
+</script>
+
+</body>
+</html>

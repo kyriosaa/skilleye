@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Tennis Coach Mobile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1a1a2e;
+            background: #f4f7f5;
+            line-height: 1.5;
+            user-select: none;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* App Header */
+        .app-header {
+            background: #fff;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .app-title { font-weight: 800; font-size: 1.1rem; color: #2d6a4f; display: flex; align-items: center; gap: 6px; }
+        .lang-btn {
+            background: #e8f5e9; border: none; padding: 6px 14px; border-radius: 16px;
+            font-size: 0.75rem; font-weight: 700; cursor: pointer; color: #2d6a4f;
+        }
+
+        /* App Main Content */
+        .app-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 80px; /* Space for bottom tab bar */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Tab Panes */
+        .tab-panel { display: none; padding: 16px; }
+        .tab-panel.active { display: block; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Bottom Tab Bar */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 64px;
+            background: rgba(255,255,255,0.98);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(0,0,0,0.05);
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 600;
+            gap: 4px;
+        }
+        .tab-item .icon { font-size: 1.3rem; transition: transform 0.2s; }
+        .tab-item.active { color: #2d6a4f; }
+        .tab-item.active .icon { transform: scale(1.1); }
+
+        /* General UI Elements */
+        .card {
+            background: #fff; border-radius: 16px; padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02); margin-bottom: 16px;
+        }
+        .card-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .card p { font-size: 0.82rem; color: #666; line-height: 1.6; }
+
+        /* Hero */
+        .hero-card {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            padding: 24px 16px; text-align: center; border-radius: 24px; margin-bottom: 16px;
+        }
+        .hero-emoji { font-size: 4rem; margin-bottom: 12px; animation: bounce 3s infinite; }
+        @keyframes bounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
+        .hero-title { font-size: 1.6rem; font-weight: 800; color: #2d6a4f; margin-bottom: 8px; }
+        .hero-desc { font-size: 0.88rem; color: #4b5563; margin-bottom: 16px; }
+
+        /* Segmented Control for sub-sections */
+        .segmented-control {
+            display: flex; background: #e4e9e5; padding: 3px; border-radius: 12px; margin-bottom: 16px;
+        }
+        .segment-btn {
+            flex: 1; border: none; background: none; padding: 8px 0; font-size: 0.8rem;
+            font-weight: 600; color: #666; border-radius: 9px; cursor: pointer;
+        }
+        .segment-btn.active { background: #fff; color: #2d6a4f; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+
+        /* About / Players list */
+        .players-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .player-chip { background: #f0fdf4; padding: 6px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; color: #2d6a4f; }
+
+        /* Warm-up Chibi list */
+        .chibi-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .chibi-item { background: #fff; border-radius: 16px; padding: 14px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        .chibi-preview { width: 60px; height: 80px; margin: 0 auto 8px; position: relative; }
+        .chibi-head { width: 28px; height: 28px; background: #fde8d0; border-radius: 50%; margin: 0 auto; position: relative; }
+        .chibi-eye { width: 3px; height: 4px; background: #333; border-radius: 50%; position: absolute; top: 11px; }
+        .chibi-eye.l { left: 7px; } .chibi-eye.r { right: 7px; }
+        .chibi-body { width: 20px; height: 28px; background: #2d6a4f; border-radius: 8px 8px 4px 4px; margin: 2px auto 0; position: relative; }
+        .chibi-arm { width: 4px; height: 20px; background: #fde8d0; border-radius: 3px; position: absolute; top: 4px; }
+        .chibi-arm.l { left: -6px; transform: rotate(-30deg); }
+        .chibi-arm.r { right: -6px; transform: rotate(30deg); }
+        .chibi-arm.up.l { transform: rotate(-120deg); height: 18px; }
+        .chibi-arm.up.r { transform: rotate(120deg); height: 18px; }
+        .chibi-arm.side.l { transform: rotate(-80deg); }
+        .chibi-arm.side.r { transform: rotate(80deg); }
+        .chibi-leg { width: 5px; height: 16px; background: #fde8d0; border-radius: 3px; position: absolute; bottom: -12px; }
+        .chibi-leg.l { left: 2px; } .chibi-leg.r { right: 2px; }
+        .chibi-leg.kick.l { transform: rotate(-35deg); }
+        .chibi-leg.kick.r { transform: rotate(35deg); }
+
+        /* Drills & Gear layout */
+        .list-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f3f1; }
+        .list-item:last-child { border-bottom: none; }
+        .list-icon { font-size: 1.5rem; display: flex; align-items: center; }
+        .list-body h4 { font-size: 0.85rem; font-weight: 700; color: #1a1a2e; }
+        .list-body p { font-size: 0.75rem; color: #666; margin-top: 2px; }
+
+        /* Courts cards */
+        .court-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+        .court-btn { background: #fff; border: 1.5px solid #e4e9e5; padding: 12px 6px; border-radius: 12px; text-align: center; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: #555; }
+        .court-btn.active { border-color: #2d6a4f; background: #f0fdf4; color: #2d6a4f; }
+        .court-detail { background: #f9fbf9; border-radius: 12px; padding: 12px; display: none; }
+        .court-detail.active { display: block; }
+
+        /* AI Coach Section */
+        .ai-camera-container {
+            background: #2d6a4f; border-radius: 20px; padding: 24px 16px; text-align: center; color: #fff;
+            box-shadow: 0 8px 24px rgba(45,106,79,0.25); position: relative; overflow: hidden;
+        }
+        .ai-scan-bar {
+            position: absolute; left: 0; right: 0; height: 3px; background: #74c69d;
+            box-shadow: 0 0 10px #74c69d; animation: scan 3s linear infinite; display: none;
+        }
+        @keyframes scan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+        .ai-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 6px; }
+        .ai-desc { font-size: 0.78rem; opacity: 0.85; margin-bottom: 18px; }
+        .upload-btn {
+            background: #fff; color: #2d6a4f; border: none; padding: 12px 24px; border-radius: 30px;
+            font-size: 0.85rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .upload-btn:active { transform: scale(0.98); }
+        .loading-wrap { display: none; margin-top: 16px; text-align: center; }
+        .spinner {
+            width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff;
+            border-radius: 50%; display: inline-block; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Social / Contact */
+        .contact-link {
+            display: flex; align-items: center; gap: 12px; background: #f0fdf4;
+            padding: 14px; border-radius: 12px; text-decoration: none; color: #2d6a4f;
+            font-weight: 700; font-size: 0.9rem; justify-content: center;
+        }
+
+        .lang-hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="app-header">
+    <div class="app-title">🎾 AI Tennis Coach</div>
+    <button class="lang-btn" id="langToggle">EN</button>
+</div>
+
+<!-- Main Scrollable Content -->
+<div class="app-content">
+
+    <!-- TAB 1: HOME -->
+    <div id="panel-home" class="tab-panel active">
+        <div class="hero-card">
+            <div class="hero-emoji">🏆</div>
+            <h2 class="hero-title lang-zh">你的專屬<br>AI 網球教練</h2>
+            <h2 class="hero-title lang-en lang-hidden">Your Personal<br>AI Tennis Coach</h2>
+            <p class="hero-desc lang-zh">完全免費！專為初學者設計，上傳影片即時分析技術。</p>
+            <p class="hero-desc lang-en lang-hidden">100% Free! Designed for beginners. Upload video for instant feedback.</p>
+            <button class="upload-btn" onclick="switchTab('ai')">
+                <span class="lang-zh">立即體驗 →</span>
+                <span class="lang-en lang-hidden">Try Now →</span>
+            </button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🎾 <span class="lang-zh">我們的目標</span><span class="lang-en lang-hidden">Our Mission</span></div>
+            <p class="lang-zh">我們希望打破昂貴的網球教學門檻，讓每一位剛接觸網球的初學者，不花一分錢就能擁有專業級教練的即時動作指導與品質評估。</p>
+            <p class="lang-en lang-hidden">We aim to make tennis accessible to everyone by providing professional, instant technique analysis entirely for free.</p>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🚀 <span class="lang-zh">五大優勢</span><span class="lang-en lang-hidden">Top 5 Advantages</span></div>
+            <div class="list-item">
+                <div class="list-icon">🆓</div>
+                <div class="list-body">
+                    <h4 class="lang-zh">完全免費</h4><h4 class="lang-en lang-hidden">100% Free</h4>
+                    <p class="lang-zh">無需訂閱、無需信用卡即可使用</p><p class="lang-en lang-hidden">No credit card or subscription needed</p>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="list-icon">🎓</div>
+                <div class="list-body">
+                    <h4 class="lang-zh">初學者友善</h4><h4 class="lang-en lang-hidden">Beginner Friendly</h4>
+                    <p class="lang-zh">從基礎握拍、熱身拉筋到控球練習一應俱全</p><p class="lang-en lang-hidden">Covers grips, stretches, and basic ball control</p>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="list-icon">🤖</div>
+                <div class="list-body">
+                    <h4 class="lang-zh">AI 即時分析</h4><h4 class="lang-en lang-hidden">AI Live Feedback</h4>
+                    <p class="lang-zh">揮拍軌跡、品質、錯誤動作一目了然</p><p class="lang-en lang-hidden">Track swing path, form quality & error detection</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: TRAINING -->
+    <div id="panel-training" class="tab-panel">
+        <div class="segmented-control">
+            <button class="segment-btn active" id="btn-warmup" onclick="switchTrainingSub('warmup')">
+                <span class="lang-zh">熱身拉筋</span><span class="lang-en lang-hidden">Stretching</span>
+            </button>
+            <button class="segment-btn" id="btn-drills" onclick="switchTrainingSub('drills')">
+                <span class="lang-zh">控球練習</span><span class="lang-en lang-hidden">Drills</span>
+            </button>
+            <button class="segment-btn" id="btn-players" onclick="switchTrainingSub('players')">
+                <span class="lang-zh">握拍/選手</span><span class="lang-en lang-hidden">Grips/Model</span>
+            </button>
+        </div>
+
+        <!-- Sub 1: Warmup -->
+        <div id="sub-warmup" class="sub-panel">
+            <div class="card" style="padding-bottom:8px;">
+                <div class="card-title">🔥 <span class="lang-zh">練前動態熱身</span><span class="lang-en lang-hidden">Pre-play Dynamic</span></div>
+                <div class="chibi-list">
+                    <div class="chibi-item">
+                        <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm up l"></div><div class="chibi-arm up r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                        <div class="chibi-label lang-zh">開合跳</div><div class="chibi-label lang-en lang-hidden">Jumping Jacks</div>
+                    </div>
+                    <div class="chibi-item">
+                        <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm side l"></div><div class="chibi-arm side r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                        <div class="chibi-label lang-zh">手臂畫圈</div><div class="chibi-label lang-en lang-hidden">Arm Circles</div>
+                    </div>
+                    <div class="chibi-item">
+                        <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg kick l"></div><div class="chibi-leg r"></div></div></div>
+                        <div class="chibi-label lang-zh">擺腿</div><div class="chibi-label lang-en lang-hidden">Leg Swings</div>
+                    </div>
+                    <div class="chibi-item">
+                        <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg kick r"></div></div></div>
+                        <div class="chibi-label lang-zh">弓箭步</div><div class="chibi-label lang-en lang-hidden">Lunges</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="padding-bottom:8px;">
+                <div class="card-title">🧊 <span class="lang-zh">練後靜態收操</span><span class="lang-en lang-hidden">Post-play Static</span></div>
+                <div class="chibi-list">
+                    <div class="chibi-item">
+                        <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm side l"></div><div class="chibi-arm r"></div><div class="chibi-leg kick l"></div><div class="chibi-leg r"></div></div></div>
+                        <div class="chibi-label lang-zh">大腿前側</div><div class="chibi-label lang-en lang-hidden">Quad Stretch</div>
+                    </div>
+                    <div class="chibi-item">
+                        <div class="chibi"><div class="chibi-head"><div class="chibi-eye l"></div><div class="chibi-eye r"></div><div class="chibi-mouth"></div></div><div class="chibi-body"><div class="chibi-arm l"></div><div class="chibi-arm r"></div><div class="chibi-leg l"></div><div class="chibi-leg r"></div></div></div>
+                        <div class="chibi-label lang-zh">大腿後側</div><div class="chibi-label lang-en lang-hidden">Hamstrings</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sub 2: Drills -->
+        <div id="sub-drills" class="sub-panel" style="display:none;">
+            <div class="card">
+                <div class="card-title">🤲 <span class="lang-zh">球感與控球基礎</span><span class="lang-en lang-hidden">Basic Ball Feel</span></div>
+                <div class="list-item">
+                    <div class="list-icon">🏓</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh">拍面顛球</h4><h4 class="lang-en lang-hidden">Racket Bounce</h4>
+                        <p class="lang-zh">連續向上顛球，控制在固定高度，固定手腕</p><p class="lang-en lang-hidden">Bounce ball upward, keep steady height</p>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <div class="list-icon">🧱</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh">對牆練習</h4><h4 class="lang-en lang-hidden">Wall Practice</h4>
+                        <p class="lang-zh">距離牆壁2-3米，練習連續擊落地球，訓練節奏感</p><p class="lang-en lang-hidden">Stand 2-3m away, hit continuous groundstrokes</p>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <div class="list-icon">🎾</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh">迷你網球對打</h4><h4 class="lang-en lang-hidden">Mini Tennis</h4>
+                        <p class="lang-zh">在發球區內對打，控制力道與拋物線</p><p class="lang-en lang-hidden">Rally within service boxes, control power</p>
+                    </div>
+                </div>
+                <div class="tip-box">
+                    <p class="lang-zh">💡 秘訣：初學者一定要用「減壓網球」練習，才能建立完美控球動力鏈！</p>
+                    <p class="lang-en lang-hidden">💡 Tip: Beginners must use "pressureless balls" to build a perfect control chain!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sub 3: Players -->
+        <div id="sub-players" class="sub-panel" style="display:none;">
+            <div class="card">
+                <div class="card-title">🤝 <span class="lang-zh">三大握拍法</span><span class="lang-en lang-hidden">3 Essential Grips</span></div>
+                <div class="list-item">
+                    <div class="list-icon">1️⃣</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh">東方式正拍 (Eastern Grip)</h4>
+                        <p class="lang-zh">手掌貼在拍柄右側面。像跟球拍握手，最適合新手入門。</p>
+                        <p class="lang-en lang-hidden">Like shaking hands with racket, best for beginners.</p>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <div class="list-icon">2️⃣</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh">半西方式正拍 (Semi-Western)</h4>
+                        <p class="lang-zh">適合擊打中高球，也是目前職業選手最主流、最容易產生上旋的握拍方式。</p>
+                        <p class="lang-en lang-hidden">Most popular among pros, yields excellent topspin.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">🌟 <span class="lang-zh">動作模型參考選手</span><span class="lang-en lang-hidden">Model Players Reference</span></div>
+                <p class="lang-zh">AI分析依據以下頂尖巨星的完美姿勢為基準：</p>
+                <p class="lang-en lang-hidden">AI analysis is benchmarked against these world champions:</p>
+                <div class="players-wrap">
+                    <span class="player-chip">🇷🇸 Novak Djokovic</span>
+                    <span class="player-chip">🇪🇸 Rafael Nadal</span>
+                    <span class="player-chip">🇨🇭 Roger Federer</span>
+                    <span class="player-chip">🇮🇹 Jannik Sinner</span>
+                    <span class="player-chip">🇪🇸 Carlos Alcaraz</span>
+                    <span class="player-chip">🇺🇸 Ben Shelton</span>
+                    <span class="player-chip">🇬🇧 Andy Murray</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: GEAR -->
+    <div id="panel-gear" class="tab-panel">
+        <div class="segmented-control">
+            <button class="segment-btn active" id="btn-equip" onclick="switchGearSub('equip')">
+                <span class="lang-zh">必備器材</span><span class="lang-en lang-hidden">Gear</span>
+            </button>
+            <button class="segment-btn" id="btn-courts" onclick="switchGearSub('courts')">
+                <span class="lang-zh">場地種類</span><span class="lang-en lang-hidden">Courts</span>
+            </button>
+            <button class="segment-btn" id="btn-shoes" onclick="switchGearSub('shoes')">
+                <span class="lang-zh">網球鞋選購</span><span class="lang-en lang-hidden">Shoes</span>
+            </button>
+        </div>
+
+        <!-- Sub 1: Equip -->
+        <div id="sub-equip" class="sub-panel">
+            <div class="card">
+                <div class="card-title">🏸 <span class="lang-zh">如何選網球拍</span><span class="lang-en lang-hidden">Racket Buying</span></div>
+                <p class="lang-zh"><strong>拍面：</strong>初學者首選 100~105 平方英吋的大拍面，容錯甜區較大。<br><strong>重量：</strong>男生建議 280~300 克；女生 260~285 克，最容易揮動且不易手肘受傷。</p>
+                <p class="lang-en lang-hidden"><strong>Head Size:</strong> 100-105 sq in for beginners.<br><strong>Weight:</strong> Men: 280-300g; Women: 260-285g.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">配件選擇</div>
+                <div class="list-item">
+                    <div class="list-icon">🧻</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh">握把布 (Overgrip)</h4>
+                        <p class="lang-zh">纏繞在外層，PU黏性布最常見，提供絕佳防滑效果。</p>
+                        <p class="lang-en lang-hidden">Overgrip provides anti-slip and absorbency.</p>
+                    </div>
+                </div>
+                <div class="list-item">
+                    <div class="list-icon">🔧</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh">避震器 (Dampener)</h4>
+                        <p class="lang-zh">卡在拍頭最底部的琴線上，用來吸收擊球餘震與金屬回音。</p>
+                        <p class="lang-en lang-hidden">Absorbs string vibration and changes sound.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sub 2: Courts -->
+        <div id="sub-courts" class="sub-panel" style="display:none;">
+            <div class="court-row">
+                <div class="court-btn active" id="cbtn-clay" onclick="showCourt('clay')">紅土</div>
+                <div class="court-btn" id="cbtn-grass" onclick="showCourt('grass')">草地</div>
+                <div class="court-btn" id="cbtn-hard" onclick="showCourt('hard')">硬地</div>
+            </div>
+            <div id="cd-clay" class="court-detail active card">
+                <h4 style="color:#c4553a;margin-bottom:6px;">🏟️ 紅土球場 (Clay)</h4>
+                <p class="lang-zh"><strong>特色：</strong>球速最慢、彈跳最高，適合防守與大範圍滑步。<br><strong>大滿貫：</strong>法網 (Roland Garros)</p>
+                <p class="lang-en lang-hidden">Slow speed, high bounce, easy on joints.</p>
+            </div>
+            <div id="cd-grass" class="court-detail card">
+                <h4 style="color:#4a9c5b;margin-bottom:6px;">🌿 草地球場 (Grass)</h4>
+                <p class="lang-zh"><strong>特色：</strong>球速極快、彈跳非常低且常有不規則反彈，極度考驗反應與發球上網技術。<br><strong>大滿貫：</strong>溫網 (Wimbledon)</p>
+                <p class="lang-en lang-hidden">Fastest speed, low & slick bounce.</p>
+            </div>
+            <div id="cd-hard" class="court-detail card">
+                <h4 style="color:#7a8a9a;margin-bottom:6px;">🪨 硬地球場 (Hard)</h4>
+                <p class="lang-zh"><strong>特色：</strong>球速與彈跳適中，地表最普及，球速反彈非常有規律。缺點是硬度大，對膝蓋負擔較重。<br><strong>大滿貫：</strong>澳網、美網</p>
+                <p class="lang-en lang-hidden">Consistent bounce, most common, hard on knees.</p>
+            </div>
+        </div>
+
+        <!-- Sub 3: Shoes -->
+        <div id="sub-shoes" class="sub-panel" style="display:none;">
+            <div class="card">
+                <div class="card-title">👟 <span class="lang-zh">為什麼要買網球鞋？</span><span class="lang-en lang-hidden">Why Tennis Shoes?</span></div>
+                <p class="lang-zh">網球有大量的「左右側向急停、滑步與變向」，一般慢跑鞋只針對「向前跑步」設計，穿去打網球極容易造成嚴重的側向翻船（腳踝扭傷）。網球鞋在兩側有特別加固側向支撐。</p>
+                <p class="lang-en lang-hidden">Running shoes are for forward motion; tennis shoes provide lateral stability to prevent ankle sprains.</p>
+            </div>
+            <div class="card">
+                <div class="card-title">💡 <span class="lang-zh">選購小技巧</span><span class="lang-en lang-hidden">Buying Tips</span></div>
+                <p class="lang-zh"><strong>大半號：</strong>運動時雙腳會腫脹，建議網球鞋要選比平時大半號（預留約一個手指寬度），能防止腳趾因急停而頂黑受傷。</p>
+                <p class="lang-en lang-hidden"><strong>Go half size up</strong> to prevent black toenails from sudden stops.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: AI COACH -->
+    <div id="panel-ai" class="tab-panel">
+        <!-- Sub-panel 1: Welcome & Intro -->
+        <div id="ai-home-sub" style="text-align:center; padding:24px 16px;">
+            <div style="font-size:4rem; margin-bottom:16px;">🤖</div>
+            <h3 class="lang-zh" style="font-size:1.3rem; font-weight:800; color:#2d6a4f; margin-bottom:8px;">AI 動作分析與評估</h3>
+            <h3 class="lang-en lang-hidden" style="font-size:1.3rem; font-weight:800; color:#2d6a4f; margin-bottom:8px;">AI Swing Analysis</h3>
+            <p class="lang-zh" style="font-size:0.85rem; color:#666; margin-bottom:24px; line-height:1.6;">本模組採用先進的 RTMPose 姿態骨架擷取與 ST-GCN 深度學習分類器，為您提供最精準的揮拍正確度與動力鏈評估。</p>
+            <p class="lang-en lang-hidden" style="font-size:0.85rem; color:#666; margin-bottom:24px; line-height:1.6;">Powered by RTMPose skeleton model and ST-GCN networks to evaluate swing consistency and quality.</p>
+            
+            <button class="upload-btn" onclick="enterMobileAnalysis()" style="background:#2d6a4f; color:#fff;">
+                <span class="lang-zh">進入影片分析頁面 →</span>
+                <span class="lang-en lang-hidden">Enter Video Analysis →</span>
+            </button>
+        </div>
+
+        <!-- Sub-panel 2: Actual Upload Screen (Initially hidden) -->
+        <div id="ai-upload-sub" style="display:none;">
+            <button onclick="exitMobileAnalysis()" style="background:none; border:none; color:#2d6a4f; font-weight:700; font-size:0.85rem; cursor:pointer; margin-bottom:12px; display:flex; align-items:center; gap:4px;">
+                <span>←</span>
+                <span class="lang-zh">返回主頁</span>
+                <span class="lang-en lang-hidden">Back</span>
+            </button>
+
+            <div class="ai-camera-container" style="padding:16px;">
+                <div class="ai-scan-bar" id="scanBar"></div>
+
+                <!-- Sub-Mode Switcher Tabs for Mobile -->
+                <div class="segmented-control" style="margin-bottom:16px; background:rgba(0,0,0,0.15);">
+                    <button class="segment-btn active" id="btn-m-upload" onclick="switchMobileUploadMode('upload')" style="color:#fff; font-size:0.75rem;">
+                        <span class="lang-zh">📂 影片上傳</span><span class="lang-en lang-hidden">📂 Video</span>
+                    </button>
+                    <button class="segment-btn" id="btn-m-camera" onclick="switchMobileUploadMode('camera')" style="color:rgba(255,255,255,0.7); font-size:0.75rem;">
+                        <span class="lang-zh">📷 即時拍攝</span><span class="lang-en lang-hidden">📷 Camera</span>
+                    </button>
+                </div>
+                
+                <!-- Mobile Panel 1: File Upload -->
+                <div id="m-panelUploadMode" style="display:block;">
+                    <div id="m-uploadDefault">
+                        <div class="ai-title lang-zh">上傳影片檔案</div>
+                        <div class="ai-title lang-en lang-hidden">Upload Video</div>
+                        <div class="ai-desc lang-zh" style="margin-bottom:12px;">選擇影片分析你的揮拍與動作正確度</div>
+                        <div class="ai-desc lang-en lang-hidden" style="margin-bottom:12px;">Choose video to analyze swing posture</div>
+                        
+                        <input type="file" id="videoUpload" style="display:none;" accept="video/*" onchange="handleFileSelect()">
+                        <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('videoUpload').click()">
+                            <span>📷</span>
+                            <span class="lang-zh">選擇影片檔案</span>
+                            <span class="lang-en lang-hidden">Select Video</span>
+                        </button>
+                    </div>
+
+                    <!-- Selected file preview & analysis button -->
+                    <div id="fileSelectedInfo" style="display:none; text-align:center;">
+                        <p id="fileNameDisplay" style="font-size:0.85rem; color:#fff; margin-bottom:12px; font-weight:500;"></p>
+                        <div style="display:flex; justify-content:center; gap:8px;">
+                            <button class="upload-btn" style="background:#888; font-size:0.8rem; padding:8px 16px;" onclick="resetMobileUploader()">
+                                <span class="lang-zh">重選</span><span class="lang-en lang-hidden">Reset</span>
+                            </button>
+                            <button class="upload-btn" id="aiAnalyzeBtn" onclick="startScan()" style="background:#74c69d; color:#1a1a2e; font-size:0.8rem; padding:8px 16px; box-shadow:0 4px 12px rgba(116,198,157,0.35);">
+                                <span class="lang-zh">開始分析 🤖</span><span class="lang-en lang-hidden">Analyze 🤖</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile Panel 2: Live Camera Feed (using front camera) -->
+                <div id="m-panelCameraMode" style="display:none; text-align:center;">
+                    <div id="m-cameraPrompt">
+                        <div class="ai-title lang-zh">鏡頭即時拍攝</div>
+                        <div class="ai-title lang-en lang-hidden">Live Camera</div>
+                        <div class="ai-desc lang-zh" style="margin-bottom:12px;">使用您的前鏡頭進行即時姿勢分析</div>
+                        <div class="ai-desc lang-en lang-hidden" style="margin-bottom:12px;">Use front-facing camera for stance feedback</div>
+                        
+                        <button class="upload-btn" onclick="startMobileWebcam()">
+                            <span class="lang-zh">開啟前鏡頭 📷</span>
+                            <span class="lang-en lang-hidden">Open Camera 📷</span>
+                        </button>
+                    </div>
+
+                    <div id="m-cameraStreamContainer" style="display:none;">
+                        <video id="mobileWebcamFeed" autoplay playsinline muted style="width:100%; max-height:600px; border-radius:12px; background:#000; transform: scaleX(-1); object-fit:cover; margin-bottom:12px;"></video>
+                        <canvas id="mobileWebcamOverlay" style="display:none; width:100%; max-height:600px; border-radius:12px; background:#000; margin-bottom:12px;"></canvas>
+                        
+                        <div style="margin-bottom:10px;">
+                            <select id="m-strokeSelect" style="padding:8px 16px; border-radius:20px; border:1px solid #c8e6c9; background:#2d6a4f; color:#fff; font-weight:600; cursor:pointer;">
+                                <option value="forehand">正手拍 (Forehand)</option>
+                                <option value="backhand">反手拍 (Backhand)</option>
+                                <option value="serve">發球 (Serve)</option>
+                                <option value="smash">高壓殺球 (Smash)</option>
+                            </select>
+                        </div>
+                        <p id="mobileOverlayStatus" style="font-size:0.7rem; color:#fff; margin:0 0 8px;"></p>
+                        <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
+                            <button class="upload-btn" style="background:#888; font-size:0.8rem; padding:8px 16px;" onclick="stopMobileWebcam()">
+                                <span class="lang-zh">關閉</span><span class="lang-en lang-hidden">Close</span>
+                            </button>
+                            <button class="upload-btn" onclick="toggleMobileOverlay()" style="background:#2d6a4f; font-size:0.8rem; padding:8px 16px;">
+                                <span class="lang-zh">🦴 即時骨架偵測</span><span class="lang-en lang-hidden">🦴 Live Skeleton</span>
+                            </button>
+                            <button class="upload-btn" onclick="startScan()" style="background:#74c69d; color:#1a1a2e; font-size:0.8rem; padding:8px 16px; box-shadow:0 4px 12px rgba(116,198,157,0.35);">
+                                <span class="lang-zh">即時分析 🤖</span><span class="lang-en lang-hidden">Analyze 🤖</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div class="loading-wrap" id="loadingWrap" style="display:none;">
+                    <div class="spinner"></div>
+                    <p class="lang-zh" style="margin-top:10px;color:#fff;">AI 正在分析動作與動力鏈...</p>
+                    <p class="lang-en lang-hidden" style="margin-top:10px;color:#fff;">AI is analyzing swing dynamics...</p>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:20px;display:none;" id="aiResult">
+            <h4 style="color:#2d6a4f;margin-bottom:10px;font-size:1rem;" class="lang-zh">📊 AI 診斷報告</h4>
+            <h4 style="color:#2d6a4f;margin-bottom:10px;font-size:1rem;" class="lang-en lang-hidden">📊 AI Report</h4>
+            <p class="lang-zh" style="font-size:0.8rem; color:#888;">分析完成後將在此顯示您的真實模型診斷結果。</p>
+            <p class="lang-en lang-hidden" style="font-size:0.8rem; color:#888;">Your real model diagnosis will appear here after analysis.</p>
+        </div>
+    </div>
+
+    <!-- TAB 5: CONTACT -->
+    <div id="panel-contact" class="tab-panel">
+        <div class="card" style="text-align:center;padding:40px 16px;">
+            <div style="font-size:4rem;margin-bottom:16px;">✉️</div>
+            <h2 style="font-size:1.4rem;font-weight:800;color:#2d6a4f;margin-bottom:8px;" class="lang-zh">聯絡我們</h2>
+            <h2 style="font-size:1.4rem;font-weight:800;color:#2d6a4f;margin-bottom:8px;" class="lang-en lang-hidden">Contact Us</h2>
+            <p class="lang-zh" style="margin-bottom:24px;">有任何問題、產品建議或AI合作機會，歡迎來信！</p>
+            <p class="lang-en lang-hidden" style="margin-bottom:24px;">For general questions, suggestions, or AI cooperation, let's talk!</p>
+            <a href="mailto:info@aitenniscoach.com" class="contact-link">info@aitenniscoach.com</a>
+        </div>
+    </div>
+
+</div>
+
+<!-- Bottom Tab Bar -->
+<div class="tab-bar">
+    <div class="tab-item active" onclick="switchTab('home')">
+        <span class="icon">🏠</span>
+        <span class="lang-zh">首頁</span><span class="lang-en lang-hidden">Home</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('training')">
+        <span class="icon">🏋️</span>
+        <span class="lang-zh">訓練</span><span class="lang-en lang-hidden">Training</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('gear')">
+        <span class="icon">📦</span>
+        <span class="lang-zh">裝備</span><span class="lang-en lang-hidden">Gear</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('ai')">
+        <span class="icon">🤖</span>
+        <span class="lang-zh">AI分析</span><span class="lang-en lang-hidden">AI Coach</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('contact')">
+        <span class="icon">✉️</span>
+        <span class="lang-zh">聯絡</span><span class="lang-en lang-hidden">Contact</span>
+    </div>
+</div>
+
+<script>
+    // Tab switching
+    function switchTab(tabId) {
+        // Toggle Active Panel
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+        document.getElementById('panel-' + tabId).classList.add('active');
+
+        // Toggle Active Bottom Tab
+        const tabs = document.querySelectorAll('.tab-item');
+        tabs.forEach(tab => tab.classList.remove('active'));
+        
+        let index = 0;
+        if(tabId === 'home') index = 0;
+        else if(tabId === 'training') index = 1;
+        else if(tabId === 'gear') index = 2;
+        else if(tabId === 'ai') index = 3;
+        else if(tabId === 'contact') index = 4;
+        
+        tabs[index].classList.add('active');
+
+        // Reset scroll position on content view
+        document.querySelector('.app-content').scrollTop = 0;
+    }
+
+    // Training subnav
+    function switchTrainingSub(subId) {
+        document.querySelectorAll('#panel-training .segment-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('btn-' + subId).classList.add('active');
+
+        document.querySelectorAll('#panel-training .sub-panel').forEach(panel => panel.style.display = 'none');
+        document.getElementById('sub-' + subId).style.display = 'block';
+    }
+
+    // Gear subnav
+    function switchGearSub(subId) {
+        document.querySelectorAll('#panel-gear .segment-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('btn-' + subId).classList.add('active');
+
+        document.querySelectorAll('#panel-gear .sub-panel').forEach(panel => panel.style.display = 'none');
+        document.getElementById('sub-' + subId).style.display = 'block';
+    }
+
+    // Court toggle
+    function showCourt(courtId) {
+        document.querySelectorAll('.court-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('cbtn-' + courtId).classList.add('active');
+
+        document.querySelectorAll('.court-detail').forEach(detail => panel = detail.classList.remove('active'));
+        document.getElementById('cd-' + courtId).classList.add('active');
+    }
+
+    // Mobile SPA Navigation for AI Sub-Panes
+    function enterMobileAnalysis() {
+        document.getElementById('ai-home-sub').style.display = 'none';
+        document.getElementById('ai-upload-sub').style.display = 'block';
+        document.getElementById('aiResult').style.display = 'none';
+    }
+
+    function exitMobileAnalysis() {
+        stopMobileWebcam();
+        document.getElementById('ai-upload-sub').style.display = 'none';
+        document.getElementById('ai-home-sub').style.display = 'block';
+        document.getElementById('aiResult').style.display = 'none';
+    }
+
+    // Mobile Upload Sub-mode switching
+    let activeMobileMode = 'upload';
+    let mobileWebcamStream = null;
+
+    // ---- Model backend (SkillEye FastAPI server) ----
+    const API_BASE = "http://127.0.0.1:8000";
+    const COCO_EDGES = [[0,1],[0,2],[1,3],[2,4],[5,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16],[0,5],[0,6]];
+    let mOverlayTimer = null;
+    let mOverlayBusy = false;
+    const M_CAPTURE_WIDTH = 480;
+    const mCaptureCanvas = document.createElement('canvas');
+    const mCaptureCtx = mCaptureCanvas.getContext('2d');
+
+    function switchMobileUploadMode(mode) {
+        if (mode === activeMobileMode) return;
+        activeMobileMode = mode;
+
+        stopMobileWebcam();
+
+        const tabUpload = document.getElementById('btn-m-upload');
+        const tabCamera = document.getElementById('btn-m-camera');
+        const panelUpload = document.getElementById('m-panelUploadMode');
+        const panelCamera = document.getElementById('m-panelCameraMode');
+
+        if (mode === 'upload') {
+            tabUpload.classList.add('active');
+            tabUpload.style.color = '#2d6a4f';
+            tabCamera.classList.remove('active');
+            tabCamera.style.color = 'rgba(255,255,255,0.7)';
+
+            panelUpload.style.display = 'block';
+            panelCamera.style.display = 'none';
+        } else {
+            tabCamera.classList.add('active');
+            tabCamera.style.color = '#2d6a4f';
+            tabUpload.classList.remove('active');
+            tabUpload.style.color = 'rgba(255,255,255,0.7)';
+
+            panelUpload.style.display = 'none';
+            panelCamera.style.display = 'block';
+        }
+        document.getElementById('aiResult').style.display = 'none';
+    }
+
+    // AI Scanner Simulation & File Handler
+    function handleFileSelect() {
+        const file = document.getElementById('videoUpload').files[0];
+        if(!file) return;
+
+        document.getElementById('fileNameDisplay').textContent = "📂 " + file.name;
+        document.getElementById('fileSelectedInfo').style.display = 'block';
+        document.getElementById('m-uploadDefault').style.display = 'none';
+        document.getElementById('aiResult').style.display = 'none';
+    }
+
+    function resetMobileUploader() {
+        document.getElementById('videoUpload').value = "";
+        document.getElementById('fileSelectedInfo').style.display = 'none';
+        document.getElementById('m-uploadDefault').style.display = 'block';
+        document.getElementById('aiResult').style.display = 'none';
+    }
+
+    // Mobile Front Camera handler
+    async function startMobileWebcam() {
+        try {
+            const constraints = {
+                video: { facingMode: "user" }, // Target front-facing camera specifically
+                audio: false
+            };
+            mobileWebcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const videoElement = document.getElementById('mobileWebcamFeed');
+            videoElement.srcObject = mobileWebcamStream;
+            
+            document.getElementById('m-cameraPrompt').style.display = 'none';
+            document.getElementById('m-cameraStreamContainer').style.display = 'block';
+        } catch (err) {
+            alert("無法開啟前鏡頭: " + err.message);
+        }
+    }
+
+    function stopMobileWebcam() {
+        stopMobileOverlay();
+        if (mobileWebcamStream) {
+            mobileWebcamStream.getTracks().forEach(track => track.stop());
+            mobileWebcamStream = null;
+        }
+        document.getElementById('m-cameraStreamContainer').style.display = 'none';
+        document.getElementById('m-cameraPrompt').style.display = 'block';
+    }
+
+    // ---- Live per-frame skeleton overlay (RTMPose via /analyze_frame) ----
+    function stopMobileOverlay() {
+        if (mOverlayTimer !== null) {
+            clearTimeout(mOverlayTimer);
+            mOverlayTimer = null;
+        }
+        mOverlayBusy = false;
+        const overlay = document.getElementById('mobileWebcamOverlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+            overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+        }
+        const video = document.getElementById('mobileWebcamFeed');
+        if (video) video.style.display = 'block';
+        const status = document.getElementById('mobileOverlayStatus');
+        if (status) status.textContent = '';
+    }
+
+    function toggleMobileOverlay() {
+        if (mOverlayTimer !== null) { stopMobileOverlay(); return; }
+        if (!mobileWebcamStream) return;
+        const video = document.getElementById('mobileWebcamFeed');
+        const overlay = document.getElementById('mobileWebcamOverlay');
+        overlay.style.display = 'block';
+        video.style.display = 'none';
+        const status = document.getElementById('mobileOverlayStatus');
+        status.textContent = currentLang === 'zh' ? '🦴 正在以您的模型即時偵測骨架...' : '🦴 Live skeleton detection using your model...';
+        mOverlayTimer = setTimeout(tickMobileOverlay, 100);
+    }
+
+    function pickMobileBestPerson(persons) {
+        let best = null, bestScore = -1;
+        (persons || []).forEach(p => {
+            let s = 0;
+            p.forEach(j => { if (j.score >= 0.3) s += j.score; });
+            if (s > bestScore) { bestScore = s; best = p; }
+        });
+        return bestScore > 0 ? best : null;
+    }
+
+    function drawMobileSkeleton(ctx, pts) {
+        const lineW = Math.max(2, Math.round(ctx.canvas.width / 320));
+        ctx.strokeStyle = '#74c69d';
+        ctx.lineWidth = lineW;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        COCO_EDGES.forEach(([a, b]) => {
+            if (pts[a].s >= 0.3 && pts[b].s >= 0.3) {
+                ctx.beginPath();
+                ctx.moveTo(pts[a].x, pts[a].y);
+                ctx.lineTo(pts[b].x, pts[b].y);
+                ctx.stroke();
+            }
+        });
+        ctx.fillStyle = '#2d6a4f';
+        pts.forEach(j => {
+            if (j.s >= 0.3) {
+                ctx.beginPath();
+                ctx.arc(j.x, j.y, Math.max(3, lineW * 1.2), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+    }
+
+    function drawMobileOverlayFrame(video, persons, cw, ch) {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const scale = vw / cw;
+        const overlay = document.getElementById('mobileWebcamOverlay');
+        overlay.width = vw; overlay.height = vh;
+        const ctx = overlay.getContext('2d');
+        ctx.save();
+        ctx.translate(vw, 0); ctx.scale(-1, 1); // mirror so it matches the selfie view
+        ctx.drawImage(video, 0, 0, vw, vh);
+        const best = pickMobileBestPerson(persons);
+        if (best) {
+            const pts = best.map(j => ({ x: j.x * scale, y: j.y * scale, s: j.score }));
+            drawMobileSkeleton(ctx, pts);
+        }
+        ctx.restore();
+    }
+
+    async function tickMobileOverlay() {
+        if (mOverlayTimer === null) return;
+        const video = document.getElementById('mobileWebcamFeed');
+        if (!video || !mobileWebcamStream || video.readyState < 2 || video.videoWidth === 0) {
+            mOverlayTimer = setTimeout(tickMobileOverlay, 200);
+            return;
+        }
+        if (mOverlayBusy) { mOverlayTimer = setTimeout(tickMobileOverlay, 150); return; }
+        mOverlayBusy = true;
+
+        const cw = M_CAPTURE_WIDTH;
+        const ch = Math.round(video.videoHeight * cw / video.videoWidth);
+        mCaptureCanvas.width = cw; mCaptureCanvas.height = ch;
+        mCaptureCtx.drawImage(video, 0, 0, cw, ch);
+
+        try {
+            const blob = await new Promise(res => mCaptureCanvas.toBlob(res, 'image/jpeg', 0.7));
+            const fd = new FormData();
+            fd.append('image', blob, 'frame.jpg');
+            const resp = await fetch(API_BASE + '/analyze_frame', { method: 'POST', body: fd });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            drawMobileOverlayFrame(video, data.persons, cw, ch);
+        } catch (e) {
+            const overlay = document.getElementById('mobileWebcamOverlay');
+            const vw = video.videoWidth, vh = video.videoHeight;
+            overlay.width = vw; overlay.height = vh;
+            const ctx = overlay.getContext('2d');
+            ctx.save();
+            ctx.translate(vw, 0); ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, vw, vh);
+            ctx.restore();
+            const status = document.getElementById('mobileOverlayStatus');
+            status.textContent = currentLang === 'zh' ? '⚠️ 無法連線模型伺服器 (127.0.0.1:8000)' : '⚠️ Cannot reach model server (127.0.0.1:8000)';
+        }
+        mOverlayBusy = false;
+        mOverlayTimer = setTimeout(tickMobileOverlay, 150);
+    }
+
+    // Capture one frame as a base64 JPEG (codec-independent clip for /analyze_frames)
+    function captureMobileFrameDataURL() {
+        const video = document.getElementById('mobileWebcamFeed');
+        const w = M_CAPTURE_WIDTH;
+        const h = Math.round(video.videoHeight * w / video.videoWidth);
+        mCaptureCanvas.width = w; mCaptureCanvas.height = h;
+        mCaptureCtx.drawImage(video, 0, 0, w, h);
+        return mCaptureCanvas.toDataURL('image/jpeg', 0.7);
+    }
+
+    function startScan() {
+        stopMobileOverlay();
+
+        // Hide inputs during scan
+        if (activeMobileMode === 'upload') {
+            document.getElementById('m-panelUploadMode').style.display = 'none';
+        } else {
+            document.getElementById('m-panelCameraMode').style.display = 'none';
+        }
+
+        document.getElementById('scanBar').style.display = 'block';
+        document.getElementById('loadingWrap').style.display = 'block';
+        document.getElementById('aiResult').style.display = 'none';
+
+        const finish = (fn) => {
+            document.getElementById('scanBar').style.display = 'none';
+            document.getElementById('loadingWrap').style.display = 'none';
+            if (activeMobileMode === 'upload') {
+                document.getElementById('m-panelUploadMode').style.display = 'block';
+            } else {
+                document.getElementById('m-panelCameraMode').style.display = 'block';
+            }
+            fn();
+        };
+
+        if (activeMobileMode === 'upload') {
+            const file = document.getElementById('videoUpload').files[0];
+            if (!file) {
+                finish(() => showMobileError('No video selected'));
+                return;
+            }
+            const formData = new FormData();
+            formData.append("file", file);
+            fetch(API_BASE + "/analyze", { method: "POST", body: formData })
+                .then(async resp => {
+                    if (!resp.ok) {
+                        const detail = await resp.json().then(j => j.detail || resp.status).catch(() => resp.status);
+                        throw new Error(detail);
+                    }
+                    return resp.json();
+                })
+                .then(data => finish(() => renderMobileReport(data)))
+                .catch(err => finish(() => showMobileError(err)));
+        } else {
+            // Record ~3.5s of webcam frames and send them to the real model (codec-independent)
+            const frames = [];
+            const step = () => {
+                if (frames.length >= 14) {
+                    fetch(API_BASE + "/analyze_frames", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ frames: frames, fps: 8 })
+                    })
+                        .then(async resp => {
+                            if (!resp.ok) {
+                                const detail = await resp.json().then(j => j.detail || resp.status).catch(() => resp.status);
+                                throw new Error(detail);
+                            }
+                            return resp.json();
+                        })
+                        .then(data => finish(() => renderMobileReport(data)))
+                        .catch(err => finish(() => showMobileError(err)));
+                    return;
+                }
+                frames.push(captureMobileFrameDataURL());
+                setTimeout(step, 250);
+            };
+            step();
+        }
+    }
+
+    const M_PHASE_MAP = {
+        backswing: ['引拍', 'Backswing'],
+        contact: ['擊球瞬間', 'Contact'],
+        follow_through: ['隨球期', 'Follow-through']
+    };
+    const M_JOINT_MAP = {
+        left_elbow: ['左肘 (L-Elbow)', 'L-Elbow'],
+        right_elbow: ['右肘 (R-Elbow)', 'R-Elbow'],
+        left_knee: ['左膝 (L-Knee)', 'L-Knee'],
+        right_knee: ['右膝 (R-Knee)', 'R-Knee'],
+        trunk_rotation: ['軀幹旋轉 (Trunk)', 'Trunk Rotation']
+    };
+    function mPair(key, map) { return map[key] || [key, key]; }
+
+    function showMobileError(err) {
+        const card = document.getElementById('aiResult');
+        card.innerHTML = `
+            <h4 style="color:#c0392b;margin-bottom:10px;font-size:1rem;" class="lang-zh">⚠️ 無法取得 AI 分析結果</h4>
+            <h4 style="color:#c0392b;margin-bottom:10px;font-size:1rem;" class="lang-en lang-hidden">⚠️ AI Analysis Unavailable</h4>
+            <p style="font-size:0.8rem; color:#ddd;" class="lang-zh">您的模型伺服器尚未啟動。請先在電腦執行 <code style="background:rgba(255,255,255,0.2); padding:2px 5px; border-radius:6px;">python SkillEye\\ml\\skilleye\\server.py</code> 後再試。</p>
+            <p style="font-size:0.8rem; color:#ddd;" class="lang-en lang-hidden">Your model server is not running. Start it with <code style="background:rgba(255,255,255,0.2); padding:2px 5px; border-radius:6px;">python SkillEye\\ml\\skilleye\\server.py</code> and retry.</p>
+            <p style="font-size:0.75rem; color:#999; margin-top:8px;">${err ? String(err.message || err) : ''}</p>
+        `;
+        card.style.display = 'block';
+        setLang(currentLang);
+    }
+
+    function renderMobileReport(data) {
+        stopMobileWebcam();
+        const card = document.getElementById('aiResult');
+
+        let rows = '';
+        if (data.table && data.table.length > 0) {
+            data.table.forEach(row => {
+                const [ph_zh, ph_en] = mPair(row.phase, M_PHASE_MAP);
+                const [jt_zh, jt_en] = mPair(row.joint, M_JOINT_MAP);
+                let val = 'N/A', z = 'N/A', st = 'N/A';
+                if (row.value !== undefined && row.value !== null) val = Number(row.value).toFixed(3);
+                if (row.z !== undefined && row.z !== null) {
+                    z = (row.z > 0 ? '+' : '') + Number(row.z).toFixed(2);
+                    st = row.flagged ? '⚠️ 有偏差' : '✓';
+                } else if (row.note) {
+                    z = row.note;
+                    st = '—';
+                }
+                rows += `<div class="list-item">
+                    <div class="list-icon">${row.flagged ? '⚠️' : '✅'}</div>
+                    <div class="list-body">
+                        <h4 class="lang-zh" style="font-size:0.82rem;">${ph_zh} / ${jt_zh} — ${st}</h4>
+                        <h4 class="lang-en lang-hidden" style="font-size:0.82rem;">${ph_en} / ${jt_en} — ${st}</h4>
+                        <p style="font-size:0.75rem; color:#ddd;">${currentLang === 'zh' ? '角度' : 'Value'}: ${val} &nbsp; z: ${z}</p>
+                    </div>
+                </div>`;
+            });
+        } else {
+            rows = '<div class="list-item"><div class="list-body"><p>無顯著偏移 / Perfect Form!</p></div></div>';
+        }
+
+        let tips = '';
+        if (data.suggestions && data.suggestions.length > 0) {
+            tips = data.suggestions.map(s => `<li style="font-size:0.75rem; color:#eee; padding:3px 0;">${s}</li>`).join('');
+        } else {
+            tips = '<li style="font-size:0.75rem; color:#eee;">姿勢非常標準，繼續保持！/ Great form!</li>';
+        }
+
+        card.innerHTML = `
+            <h4 style="color:#2d6a4f;margin-bottom:10px;font-size:1rem;" class="lang-zh">📊 AI 擊球動作技術診斷報告（真實模型）</h4>
+            <h4 style="color:#2d6a4f;margin-bottom:10px;font-size:1rem;" class="lang-en lang-hidden">📊 AI Technical Diagnostic Report (Real Model)</h4>
+            <div class="list-item">
+                <div class="list-icon">✅</div>
+                <div class="list-body">
+                    <h4 class="lang-zh">動力鏈評估：${Math.round(data.overall_score)}分 / 100</h4>
+                    <h4 class="lang-en lang-hidden">Overall Score: ${Math.round(data.overall_score)} / 100</h4>
+                    <p class="lang-zh">預測球種：${data.predicted_stroke_display}（信心值 ${Math.round(data.predicted_confidence * 100)}%）</p>
+                    <p class="lang-en lang-hidden">Predicted: ${data.predicted_stroke_display} (${Math.round(data.predicted_confidence * 100)}%)</p>
+                </div>
+            </div>
+            ${rows}
+            <div class="list-item">
+                <div class="list-icon">💡</div>
+                <div class="list-body">
+                    <h4 class="lang-zh">改進建議</h4>
+                    <h4 class="lang-en lang-hidden">Tips</h4>
+                    <ul style="padding-left:16px; margin-top:4px;">${tips}</ul>
+                </div>
+            </div>
+        `;
+        card.style.display = 'block';
+        setLang(currentLang);
+    }
+
+    // Lang toggle persistence
+    const langToggle = document.getElementById('langToggle');
+    let currentLang = localStorage.getItem('aiTennisLang') || 'zh';
+    const zhElements = document.querySelectorAll('.lang-zh');
+    const enElements = document.querySelectorAll('.lang-en');
+    
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('aiTennisLang', lang);
+        document.querySelectorAll('.lang-zh').forEach(el => { if (lang === 'zh') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        document.querySelectorAll('.lang-en').forEach(el => { if (lang === 'en') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        langToggle.textContent = lang === 'zh' ? 'EN' : '中文';
+        document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+    }
+
+    setLang(currentLang);
+    langToggle.addEventListener('click', () => { setLang(currentLang === 'zh' ? 'en' : 'zh'); });
+</script>
+
+</body>
+</html>
