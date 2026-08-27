@@ -72,6 +72,7 @@
         .suggestions ul { list-style:none; padding-left:0; }
         .suggestions li { font-size:0.85rem; color:#555; padding:4px 0; padding-left:18px; position:relative; }
         .suggestions li::before { content:"⚠️"; position:absolute; left:0; }
+        .joint-highlight { background:#fff0a8; color:#174c38; padding:1px 5px; border-radius:5px; font-weight:800; }
 
         .llm-card { background:#e8f5e9; border-radius:16px; padding:16px; margin-top:20px; border-left:4px solid #2d6a4f; }
         .llm-card p { font-size:0.85rem; color:#1b4332; font-style:italic; }
@@ -115,7 +116,7 @@
 <section>
     <div class="container">
         <h2 class="section-title lang-zh">AI 影片上傳與分析</h2>
-        <h2 class="section-title lang-en lang-hidden">AI Video Analysis</h2>
+        <h2 class="section-title lang-en lang-hidden">AI-Powered Tennis Swing Analysis</h2>
         <p class="section-sub lang-zh">請上傳您的練習影片，我們將利用深度學科骨架技術，為您提供即時技術回饋</p>
         <p class="section-sub lang-en lang-hidden">Upload your practice video to analyze your movement with our AI pose estimation models</p>
 
@@ -530,10 +531,12 @@
     let gestureBusy = false;
     let gestureArmed = true;        // re-armed after the hand drops so a held-up palm isn't double-counted
     let gestureWasFive = false;
+    let imuSessionActive = false;
 
-    function startGestureRecording() {
+    async function startGestureRecording() {
         stopOverlay();
         if (!webcamStream) { alert(currentLang === 'zh' ? '請先開啟攝影機' : 'Please open the camera first'); return; }
+
         gestureRecording = false;
         gestureFrames = [];
         gestureArmed = true;
@@ -580,6 +583,25 @@
             if (five && gestureArmed) {
                 gestureArmed = false;
                 if (!gestureRecording) {
+                    if (sensorModeIsPaired() && !imuSessionActive) {
+                        status.textContent = currentLang === 'zh' ? '🔌 正在連接感測器…' : '🔌 Connecting to sensor…';
+                        try {
+                            const sensorResponse = await fetch(API_BASE + '/imu/session/start', { method: 'POST' });
+                            const sensorData = await sensorResponse.json();
+                            if (!sensorResponse.ok || !sensorData.connected) {
+                                throw new Error(sensorData.error || 'IMU sensor is not connected');
+                            }
+                            imuSessionActive = true;
+                        } catch (error) {
+                            status.textContent = currentLang === 'zh'
+                                ? '⚠️ 未連接感測器，請先連接 ESP32 IMU'
+                                : '⚠️ Sensor not connected. Connect the ESP32 IMU first.';
+                            gestureArmed = true;
+                            gestureBusy = false;
+                            if (gestureTimer !== null) gestureTimer = setTimeout(tickGesture, 200);
+                            return;
+                        }
+                    }
                     // start recording
                     gestureRecording = true;
                     gestureFrames = [dataUrl];
@@ -593,6 +615,25 @@
                     document.getElementById('recIndicator').style.display = 'none';
                     const frames = gestureFrames.slice();
                     stopGestureRecording();
+                    if (sensorModeIsPaired()) {
+                        try {
+                            const imuResponse = await fetch(API_BASE + '/imu/session/stop', { method: 'POST' });
+                            const imuData = await imuResponse.json();
+                            imuSessionActive = false;
+                            if (!imuResponse.ok || !imuData.stroke_detected) {
+                                status.textContent = currentLang === 'zh'
+                                    ? '⚠️ 感測器未偵測到揮拍，請重新錄製並完整揮拍'
+                                    : '⚠️ The sensor did not detect a stroke. Record again and complete the swing.';
+                                return;
+                            }
+                        } catch (error) {
+                            imuSessionActive = false;
+                            status.textContent = currentLang === 'zh'
+                                ? '⚠️ 無法取得感測器資料，請重新錄製'
+                                : '⚠️ Could not read sensor data. Please record again.';
+                            return;
+                        }
+                    }
                     analyzeCameraFrames(frames);
                     return;
                 }
@@ -616,6 +657,10 @@
         }
         gestureBusy = false;
         if (gestureTimer !== null) gestureTimer = setTimeout(tickGesture, 200);
+    }
+
+    function sensorModeIsPaired() {
+        return document.querySelector('input[name="sensorMode"]:checked').value === 'with';
     }
 
     function toggleSensorMode() {
@@ -774,6 +819,26 @@
     };
     function displayPair(key, map) { return map[key] || [key, key]; }
 
+    function beginnerSuggestion(text) {
+        text = String(text);
+        const match = text.match(/^(Backswing|Contact|Follow-through): (left shoulder|right shoulder|left elbow|right elbow|left knee|right knee|trunk rotation) is (above|below) the typical expert range/);
+        if (match) {
+            const [, phase, joint, direction] = match;
+            const tips = {
+                "left shoulder": ["try raising your left shoulder and arm more through the shot", "try keeping your left shoulder and arm a little lower"],
+                "right shoulder": ["try raising your right shoulder and arm more through the shot", "try keeping your right shoulder and arm a little lower"],
+                "left elbow": ["try extending your left elbow and arm more", "try relaxing your left elbow and arm a little"],
+                "right elbow": ["try extending your right elbow and arm more", "try relaxing your right elbow and arm a little"],
+                "left knee": ["try bending your left knee more for a lower stance", "try standing a bit taller and relaxing your left knee"],
+                "right knee": ["try bending your right knee more for a lower stance", "try standing a bit taller and relaxing your right knee"],
+                "trunk rotation": ["try rotating your trunk more through the shot", "try making your trunk rotation smoother and more controlled"]
+            };
+            text = `During the ${phase.toLowerCase()}, ${tips[joint][direction === "above" ? 1 : 0]}.`;
+        }
+        const escaped = text.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+        return escaped.replace(/\b(left|right) (shoulder|elbow|knee)\b|\btrunk rotation\b/gi, '<span class="joint-highlight">$&</span>');
+    }
+
     function renderRealReport(data) {
         stopWebcam();
 
@@ -818,14 +883,14 @@
 
         let suggestionsHtml = "";
         if (data.suggestions && data.suggestions.length > 0) {
-            data.suggestions.forEach(s => { suggestionsHtml += `<li>${s}</li>`; });
+            data.suggestions.forEach(s => { suggestionsHtml += `<li>${beginnerSuggestion(s)}</li>`; });
         } else {
             suggestionsHtml = '<li>姿勢非常標準，繼續保持！/ Form looks great, keep it up!</li>';
         }
 
         reportResults.innerHTML = `
             <h3 class="lang-zh" style="color:#2d6a4f; margin-bottom:16px;">💡 改進建議（Actionable Tips）</h3>
-            <h3 class="lang-en lang-hidden" style="color:#2d6a4f; margin-bottom:16px;">💡 Actionable Tips</h3>
+            <h3 class="lang-en lang-hidden" style="color:#2d6a4f; margin-bottom:16px;">💡 Simple Tips to Improve</h3>
             <div class="suggestions">
                 <ul>
                     ${suggestionsHtml}

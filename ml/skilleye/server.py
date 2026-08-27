@@ -1,13 +1,17 @@
 import base64
+import asyncio
 import json
 import os
+import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 import cv2
 import numpy as np
 import torch
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from rtmlib import Body, Hand
@@ -16,6 +20,11 @@ from stroke_dataset import STROKE_CLASSES, resample_time, add_velocity
 from stgcn_model import STGCN, COCO17_EDGES
 from skeleton_pipeline import clean_clip
 from quality.score import score_clip
+
+HARDWARE_CLIENT_DIR = Path(__file__).resolve().parents[2] / "hardware" / "client"
+if str(HARDWARE_CLIENT_DIR) not in sys.path:
+    sys.path.insert(0, str(HARDWARE_CLIENT_DIR))
+from imu_client import IMUStream, StreamStats, iter_rows, load_config
 
 APP_DIR = Path(__file__).parent.resolve()
 TEMPLATES_PATH = str(APP_DIR / "../results/quality_templates/templates.json")
@@ -46,6 +55,13 @@ STROKE_DISPLAY_MAP = {
     "forehand_volley": "正手截擊 (Forehand Volley)",
     "backhand_volley": "反手截擊 (Backhand Volley)",
 }
+
+IMU_CONFIG = load_config()
+IMU_RECORDINGS_DIR = (APP_DIR / "../results/imu_recordings").resolve()
+IMU_STROKE_ACCEL_THRESHOLD_G = 2.0
+IMU_STROKE_GYRO_THRESHOLD_DPS = 150.0
+imu_session = None
+imu_session_lock = threading.Lock()
 
 
 def pick_device():
@@ -209,6 +225,137 @@ async def analyze_video(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(tmp_path): os.remove(tmp_path)
+
+
+def _imu_connection():
+    return IMUStream(
+        IMU_CONFIG.get("host", "192.168.4.1"),
+        int(IMU_CONFIG.get("port", 3333)),
+        timeout=10.0,
+    )
+
+
+@app.get("/imu/status")
+async def imu_status():
+    """Check whether the ESP32 IMU accepts a TCP connection."""
+    try:
+        with _imu_connection():
+            return {"connected": True}
+    except (ConnectionRefusedError, OSError, TimeoutError) as exc:
+        return {"connected": False, "error": str(exc)}
+
+
+def _record_imu(seconds, output_path):
+    stats = StreamStats()
+    started = time.monotonic()
+    with _imu_connection() as stream, open(output_path, "w", encoding="utf-8", newline="") as fh:
+        for line in stream.lines():
+            fh.write(line + "\n")
+            for _ in iter_rows([line], stats):
+                pass
+            if time.monotonic() - started >= seconds:
+                break
+    return stats
+
+
+def _imu_session_worker(session):
+    try:
+        with _imu_connection() as stream:
+            session["connected"] = True
+            session["ready"].set()
+            with open(session["output_path"], "w", encoding="utf-8", newline="") as fh:
+                for line in stream.lines():
+                    if session["stop"].is_set():
+                        break
+                    fh.write(line + "\n")
+                    for _, _, values in iter_rows([line], session["stats"]):
+                        accel = (values[0] ** 2 + values[1] ** 2 + values[2] ** 2) ** 0.5
+                        gyro = (values[3] ** 2 + values[4] ** 2 + values[5] ** 2) ** 0.5
+                        session["peak_accel_g"] = max(session["peak_accel_g"], accel)
+                        session["peak_gyro_dps"] = max(session["peak_gyro_dps"], gyro)
+    except (ConnectionRefusedError, OSError, TimeoutError) as exc:
+        session["error"] = str(exc)
+        session["ready"].set()
+
+
+@app.post("/imu/session/start")
+async def start_imu_session():
+    """Start collecting IMU data for the browser's paired recording."""
+    global imu_session
+    with imu_session_lock:
+        if imu_session is not None:
+            raise HTTPException(status_code=409, detail="An IMU recording is already active")
+        IMU_RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        output_path = IMU_RECORDINGS_DIR / f"browser_{int(time.time() * 1_000_000)}.csv"
+        session = {
+            "stop": threading.Event(), "ready": threading.Event(),
+            "stats": StreamStats(), "output_path": output_path,
+            "connected": False, "error": None,
+            "peak_accel_g": 0.0, "peak_gyro_dps": 0.0,
+        }
+        imu_session = session
+        session["thread"] = threading.Thread(
+            target=_imu_session_worker, args=(session,), daemon=True)
+        session["thread"].start()
+
+    await asyncio.to_thread(session["ready"].wait, 10.0)
+    if session["error"]:
+        with imu_session_lock:
+            imu_session = None
+        raise HTTPException(status_code=503, detail=f"IMU connection failed: {session['error']}")
+    return {"connected": session["connected"]}
+
+
+@app.post("/imu/session/stop")
+async def stop_imu_session():
+    """Stop the paired IMU recording and report whether a stroke was detected."""
+    global imu_session
+    with imu_session_lock:
+        session = imu_session
+        imu_session = None
+    if session is None:
+        raise HTTPException(status_code=404, detail="No active IMU recording")
+
+    session["stop"].set()
+    await asyncio.to_thread(session["thread"].join, 10.0)
+    stroke_detected = (
+        session["peak_accel_g"] >= IMU_STROKE_ACCEL_THRESHOLD_G
+        or session["peak_gyro_dps"] >= IMU_STROKE_GYRO_THRESHOLD_DPS
+    )
+    return {
+        "stroke_detected": stroke_detected,
+        "peak_accel_g": session["peak_accel_g"],
+        "peak_gyro_dps": session["peak_gyro_dps"],
+        "rows": session["stats"].rows,
+        "missing": session["stats"].missing,
+        "recording": str(session["output_path"].relative_to(APP_DIR.parent.parent)),
+    }
+
+
+@app.post("/imu/record")
+async def record_imu(
+    seconds: float = Query(10.0, gt=0, le=300),
+    filename: str = Query("imu_recording.csv"),
+):
+    """Record raw ESP32 IMU CSV data for a bounded duration."""
+    safe_filename = Path(filename).name
+    if not safe_filename.lower().endswith(".csv"):
+        safe_filename += ".csv"
+    IMU_RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+    output_path = IMU_RECORDINGS_DIR / safe_filename
+    try:
+        stats = await asyncio.to_thread(_record_imu, seconds, output_path)
+    except (ConnectionRefusedError, OSError, TimeoutError) as exc:
+        raise HTTPException(status_code=503, detail=f"IMU connection failed: {exc}") from exc
+
+    return {
+        "recording": str(output_path.relative_to(APP_DIR.parent.parent)),
+        "rows": stats.rows,
+        "missing": stats.missing,
+        "duration_s": stats.duration_s,
+        "measured_hz": stats.measured_hz,
+        "metadata": stats.metadata,
+    }
 
 
 @app.post("/analyze_frame")
