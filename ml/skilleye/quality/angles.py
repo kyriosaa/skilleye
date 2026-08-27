@@ -1,9 +1,20 @@
 """
 Interpretable per-frame joint angles used as the quality-scoring feature set:
-elbow flexion (L/R), knee flexion (L/R), and a trunk-rotation proxy (angle
-between the shoulder line and the hip line). Extending this set later is a
-one-entry addition to JOINT_DEFINITIONS (or a new series function, for
-trunk_rotation-style pairs) -- nothing else needs to change.
+shoulder flexion (L/R), elbow flexion (L/R), knee flexion (L/R), and a
+trunk-rotation proxy (angle between the shoulder line and the hip line).
+Extending this set later is a one-entry addition to JOINT_DEFINITIONS (or a
+new series function, for trunk_rotation-style pairs) -- nothing else needs
+to change.
+
+Note on "shoulder": Elliott (2006)'s kinetic-chain contribution figures name
+the shoulder and "upper-arm internal rotation" as separate contributors --
+internal rotation is a rotation around the humerus's long axis, which a
+single 2D camera cannot measure at all. left_shoulder/right_shoulder below is
+a 2D proxy (the angle between torso and upper arm, i.e. shoulder
+flexion/abduction in the image plane), not a literal reconstruction of
+Elliott's internal-rotation figure -- tracked so Elliott's shoulder
+contribution has *a* corresponding measured joint, not to claim exact
+biomechanical equivalence.
 """
 import numpy as np
 
@@ -14,6 +25,8 @@ from quality.keypoints import (
 
 # name -> (a, b, c): angle at joint b, formed by points a-b-c
 JOINT_DEFINITIONS = {
+    "left_shoulder": (L_HIP, L_SHOULDER, L_ELBOW),
+    "right_shoulder": (R_HIP, R_SHOULDER, R_ELBOW),
     "left_elbow": (L_SHOULDER, L_ELBOW, L_WRIST),
     "right_elbow": (R_SHOULDER, R_ELBOW, R_WRIST),
     "left_knee": (L_HIP, L_KNEE, L_ANKLE),
@@ -49,6 +62,34 @@ def trunk_rotation_series(kpts):
     denom = np.clip(n1 * n2, 1e-6, None)
     cos_theta = np.clip(dot / denom, -1.0, 1.0)
     return np.arccos(cos_theta)
+
+
+def signed_shoulder_pelvis_twist_series(kpts):
+    """Signed angle (radians) from the hip line (L_HIP->R_HIP) to the
+    shoulder line (L_SHOULDER->R_SHOULDER), per frame. Unlike
+    trunk_rotation_series above (arccos -> unsigned [0,pi]), this preserves
+    rotation direction -- needed for quality/skill_rules.py's shoulder-pelvis
+    twist-reversal rule (Katsumi et al. 2026), which depends on the sign
+    flipping between two phases, not just the magnitude. kpts: (T,17,2);
+    T=0 input returns a (0,) array."""
+    if kpts.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float32)
+    hip_vec = kpts[:, R_HIP] - kpts[:, L_HIP]
+    shoulder_vec = kpts[:, R_SHOULDER] - kpts[:, L_SHOULDER]
+    cross_z = hip_vec[:, 0] * shoulder_vec[:, 1] - hip_vec[:, 1] * shoulder_vec[:, 0]
+    dot = (hip_vec * shoulder_vec).sum(axis=-1)
+    return np.arctan2(cross_z, dot)
+
+
+def signed_pelvic_rotation_series(kpts):
+    """Signed angle (radians) of the hip line (L_HIP->R_HIP) relative to
+    horizontal, per frame -- an image-plane proxy for pelvis rotation (a
+    single 2D camera can't measure true 3D pelvis orientation). kpts:
+    (T,17,2); T=0 input returns a (0,) array."""
+    if kpts.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float32)
+    hip_vec = kpts[:, R_HIP] - kpts[:, L_HIP]
+    return np.arctan2(hip_vec[:, 1], hip_vec[:, 0])
 
 
 def compute_all_angles(kpts):

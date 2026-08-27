@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Coach - 首頁</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; color:#1a1a2e; background:#fcfcfc; line-height:1.6; }
+        .container { max-width:1200px; margin:0 auto; padding:0 24px; }
+
+        nav {
+            position:fixed; top:0; width:100%; background:rgba(255,255,255,0.95);
+            backdrop-filter:blur(12px); border-bottom:1px solid rgba(0,0,0,0.04);
+            z-index:1000; padding:0 24px;
+        }
+        nav .container { display:flex; align-items:center; justify-content:space-between; height:56px; }
+        .nav-logo { font-weight:800; font-size:1.25rem; letter-spacing:-0.5px; color:#2d6a4f; text-decoration:none; white-space:nowrap; }
+        .nav-links { display:flex; gap:20px; list-style:none; align-items:center; }
+        .nav-links a { text-decoration:none; color:#1a1a2e; font-size:0.85rem; font-weight:500; transition:color 0.2s; white-space:nowrap; padding:4px 0; border-bottom:2px solid transparent; }
+        .nav-links a:hover { color:#2d6a4f; }
+        .nav-links a.active { color:#2d6a4f; border-bottom-color:#2d6a4f; }
+        .lang-toggle { background:#e8f5e9; border:none; padding:5px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; cursor:pointer; color:#2d6a4f; }
+        .lang-toggle:hover { background:#c8e6c9; }
+        .mobile-menu-btn { display:none; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#1a1a2e; }
+
+        /* Sub nav */
+        .subnav {
+            position:fixed; top:56px; width:100%; background:rgba(247,250,248,0.95);
+            backdrop-filter:blur(8px); border-bottom:1px solid rgba(0,0,0,0.04);
+            z-index:999; padding:0 24px; display:none;
+        }
+        .subnav .container { display:flex; align-items:center; gap:24px; height:40px; overflow-x:auto; }
+        .subnav a { text-decoration:none; font-size:0.8rem; color:#666; font-weight:500; white-space:nowrap; transition:color 0.2s; }
+        .subnav a:hover { color:#2d6a4f; }
+        .subnav.visible { display:block; }
+
+        section { min-height:100vh; display:flex; align-items:center; background:linear-gradient(135deg,#f0fdf4 0%,#d8f3dc 50%,#b7e4c7 100%); padding-top:56px; }
+        #home .container { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
+        .hero-badge { display:inline-block; background:rgba(45,106,79,0.1); color:#2d6a4f; padding:6px 16px; border-radius:100px; font-size:0.8rem; font-weight:600; margin-bottom:20px; }
+        .hero-title { font-size:3.2rem; font-weight:800; line-height:1.15; letter-spacing:-2px; margin-bottom:20px; }
+        .hero-title span { color:#2d6a4f; }
+        .hero-desc { font-size:1.1rem; color:#444; margin-bottom:32px; max-width:520px; }
+        .hero-cta { display:inline-flex; align-items:center; gap:8px; background:#2d6a4f; color:#fff; padding:14px 32px; border-radius:40px; font-weight:600; font-size:0.95rem; text-decoration:none; transition:background 0.2s,transform 0.2s; }
+        .hero-cta:hover { background:#1b4332; transform:translateY(-2px); }
+        .hero-visual { display:flex; justify-content:center; align-items:center; }
+        .hero-tennis-icon { width:320px; height:320px; background:radial-gradient(circle at 40% 35%,#d8f3dc,#2d6a4f); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:6rem; box-shadow:0 40px 80px rgba(45,106,79,0.2); animation:float 6s ease-in-out infinite; }
+        @keyframes float { 0%,100% { transform:translateY(0px); } 50% { transform:translateY(-20px); } }
+        .hero-free { margin-top:20px; display:flex; align-items:center; gap:10px; color:#2d6a4f; font-weight:600; font-size:0.95rem; }
+
+        footer { border-top:1px solid rgba(0,0,0,0.05); padding:32px 0; text-align:center; font-size:0.85rem; color:#888; }
+
+        .lang-zh,.lang-en { transition:opacity 0.2s; }
+        .lang-hidden { display:none !important; }
+        .nav-links.open { display:flex; flex-direction:column; position:absolute; top:56px; left:0; right:0; background:rgba(255,255,255,0.98); backdrop-filter:blur(12px); padding:20px; gap:14px; border-bottom:1px solid rgba(0,0,0,0.04); }
+
+        @media (max-width: 768px) {
+            .nav-links { display:none; }
+            .mobile-menu-btn { display:block; }
+            #home .container { grid-template-columns:1fr; gap:40px; text-align:center; }
+            .hero-title { font-size:2.4rem; }
+            .hero-desc { margin:0 auto 32px; }
+            .hero-tennis-icon { width:200px; height:200px; font-size:4rem; }
+            .hero-free { justify-content:center; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <a href="index.html" class="nav-logo">🎾 AI Tennis Coach</a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="index.html" class="lang-zh active">首頁</a><a href="index.html" class="lang-en lang-hidden active">Home</a></li>
+            <li><a href="about.html" class="lang-zh">關於</a><a href="about.html" class="lang-en lang-hidden">About</a></li>
+            <li><a href="training.html" class="lang-zh">訓練</a><a href="training.html" class="lang-en lang-hidden">Training</a></li>
+            <li><a href="gear.html" class="lang-zh">裝備</a><a href="gear.html" class="lang-en lang-hidden">Gear</a></li>
+            <li><a href="services.html" class="lang-zh">服務</a><a href="services.html" class="lang-en lang-hidden">AI</a></li>
+            <li><a href="contact.html" class="lang-zh">聯絡</a><a href="contact.html" class="lang-en lang-hidden">Contact</a></li>
+            <li><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-zh">📱 模擬器</a><a href="simulator.html" style="background:#2d6a4f;color:#fff;padding:6px 12px;border-radius:12px;text-decoration:none;" class="lang-en lang-hidden">📱 Simulator</a></li>
+            <li><button class="lang-toggle" id="langToggle">EN</button></li>
+        </ul>
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+    </div>
+</nav>
+
+<section id="home">
+    <div class="container">
+        <div>
+            <span class="hero-badge lang-zh">🏆 免費 AI 網球教練</span>
+            <span class="hero-badge lang-en lang-hidden">🏆 Free AI Tennis Coach</span>
+            <h1 class="hero-title lang-zh">你的專屬<br><span>AI 網球教練</span></h1>
+            <h1 class="hero-title lang-en lang-hidden">Your Personal<br><span>AI Tennis Coach</span></h1>
+            <p class="hero-desc lang-zh">我們專為初學者設計，不須付費即可使用 AI 分析你的網球動作，幫助你快速進步！</p>
+            <p class="hero-desc lang-en lang-hidden">Designed for beginners — get a free AI tennis coach to analyze your swings and improve your game!</p>
+            <a href="services.html" class="hero-cta lang-zh">開始使用 →</a>
+            <a href="services.html" class="hero-cta lang-en lang-hidden">Get Started →</a>
+            <div class="hero-free lang-zh">✅ 完全免費・無需信用卡</div>
+            <div class="hero-free lang-en lang-hidden">✅ 100% Free・No Credit Card Required</div>
+        </div>
+        <div class="hero-visual">
+            <div class="hero-tennis-icon">🎾</div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p class="lang-zh">© 2026 AI Tennis Coach. 為初學者打造的免費 AI 網球教練</p>
+        <p class="lang-en lang-hidden">© 2026 AI Tennis Coach. Free AI coach for tennis beginners</p>
+    </div>
+</footer>
+
+<script>
+    const langToggle = document.getElementById('langToggle');
+    let currentLang = localStorage.getItem('aiTennisLang') || 'zh';
+    const zhElements = document.querySelectorAll('.lang-zh');
+    const enElements = document.querySelectorAll('.lang-en');
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem('aiTennisLang', lang);
+        zhElements.forEach(el => { if (lang === 'zh') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        enElements.forEach(el => { if (lang === 'en') el.classList.remove('lang-hidden'); else el.classList.add('lang-hidden'); });
+        langToggle.textContent = lang === 'zh' ? 'EN' : '中文';
+        document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+    }
+    setLang(currentLang);
+    langToggle.addEventListener('click', () => { setLang(currentLang === 'zh' ? 'en' : 'zh'); });
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const navLinks = document.getElementById('navLinks');
+    mobileBtn.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+    navLinks.querySelectorAll('a').forEach(a => { a.addEventListener('click', () => navLinks.classList.remove('open')); });
+</script>
+
+</body>
+</html>

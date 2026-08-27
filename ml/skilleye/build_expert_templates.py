@@ -20,9 +20,15 @@ from pathlib import Path
 
 import numpy as np
 
-from stroke_dataset import load_records, subject_disjoint_split, STROKE_CLASSES
+# stroke_dataset pulls in torch just by being imported (it defines a
+# torch.utils.data.Dataset subclass) -- deferred into main() so the pure
+# functions below (clip_joint_vector, compute_covariance_templates) stay
+# importable and unit-testable on a machine without torch installed.
 from quality.phases import split_phases, PHASES
 from quality.angles import phase_mean_angles
+from quality.correlation import (
+    JOINT_ORDER, fit_covariance, shrink_correlation, shrinkage_intensity, shrinkage_target,
+)
 
 
 def clip_phase_means(kpts):
@@ -31,7 +37,61 @@ def clip_phase_means(kpts):
     return {phase: phase_mean_angles(phases[phase]) for phase in PHASES}
 
 
+def clip_joint_vector(phase_kpts):
+    """phase_kpts: (T, 17, 2) for a single phase. Returns a (len(JOINT_ORDER),)
+    array in JOINT_ORDER order, or None if any tracked joint had no frames in
+    this phase (mirrors phase_mean_angles's None-for-empty-phase contract)."""
+    means = phase_mean_angles(phase_kpts)
+    if any(means[joint] is None for joint in JOINT_ORDER):
+        return None
+    return np.array([means[joint] for joint in JOINT_ORDER])
+
+
+def compute_covariance_templates(records, stroke_classes):
+    """records: list of {"stroke": str, "kpts": (T, 17, 2)} for expert clips
+    on the training side of the split (same shape as build_expert_templates'
+    main() already assembles). stroke_classes: the fixed list of stroke names
+    to always produce an (possibly empty) entry for.
+
+    Returns covariance[stroke][phase] = {"joint_order", "mean", "cov", "n"} --
+    the per-(stroke, phase) covariance matrix over JOINT_ORDER, shrunk toward
+    shrinkage_target() with shrinkage_intensity(n, p) (Module A design:
+    docs/superpowers/specs/2026-08-14-correlated-zscore-module-a-design.md).
+    A (stroke, phase) with fewer than 2 usable clips is omitted -- not enough
+    data to estimate a covariance at all -- rather than raising or silently
+    inventing one."""
+    vectors_by_stroke_phase = defaultdict(lambda: defaultdict(list))
+    for r in records:
+        phases = split_phases(r["kpts"])
+        for phase in PHASES:
+            vec = clip_joint_vector(phases[phase])
+            if vec is not None:
+                vectors_by_stroke_phase[r["stroke"]][phase].append(vec)
+
+    target_corr = shrinkage_target()
+    p = len(JOINT_ORDER)
+    covariance = {}
+    for stroke in stroke_classes:
+        covariance[stroke] = {}
+        for phase in PHASES:
+            vectors = vectors_by_stroke_phase[stroke][phase]
+            n = len(vectors)
+            if n < 2:
+                continue
+            mean, cov = fit_covariance(np.array(vectors))
+            shrunk = shrink_correlation(cov, target_corr, shrinkage_intensity(n, p))
+            covariance[stroke][phase] = {
+                "joint_order": JOINT_ORDER,
+                "mean": mean.tolist(),
+                "cov": shrunk.tolist(),
+                "n": n,
+            }
+    return covariance
+
+
 def main():
+    from skeleton_records import load_records, subject_disjoint_split, STROKE_CLASSES
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--skeletons", required=True)
     ap.add_argument("--out", required=True)
@@ -73,11 +133,19 @@ def main():
             n_clips = len(next(iter(joint_lists.values()), []))
             print(f"  {stroke:16s} {phase:16s}: {n_clips} expert clips contributed")
 
+    covariance = compute_covariance_templates(expert_train, STROKE_CLASSES)
+    for stroke in STROKE_CLASSES:
+        for phase in PHASES:
+            if phase in covariance[stroke]:
+                print(f"  {stroke:16s} {phase:16s}: covariance from "
+                      f"{covariance[stroke][phase]['n']} expert clips")
+
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump({
             "templates": templates,
+            "covariance": covariance,
             "val_subjects": sorted(val_subjects),
             "phases": PHASES,
         }, f, indent=2)

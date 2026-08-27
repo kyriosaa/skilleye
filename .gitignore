@@ -24,3 +24,13 @@ fp-info-cache
 *-rescue.dcm
 *.kicad_prl
 *.history
+
+# Device credentials / addresses -- copy the .example files and fill these in.
+hardware/firmware/secrets.h
+hardware/client/config.local.json
+
+# Raw webcam recordings -- large binary video, same reasoning as THETIS/
+# above (kept locally, not in git); the IMU CSVs, timestamps, alignment
+# JSON, and extracted skeletons alongside them are small and tracked.
+hardware/client/newresult/*.mp4
+hardware/client/result/*.mp4
